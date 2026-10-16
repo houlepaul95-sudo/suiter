@@ -1,0 +1,6 @@
+{
+  "name": "ProfilePulse: Dating Profile AI",
+  "description": "AI dating profile optimizer for Hinge, Tinder & Bumble. Features photo scoring, lead photo recommendation, bio rewrites, and conversational dating copilot tips.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
