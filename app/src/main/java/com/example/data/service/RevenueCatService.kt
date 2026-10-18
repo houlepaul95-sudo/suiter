@@ -151,7 +151,7 @@ object RevenueCatService {
             else -> SubscriptionTier.MONTHLY
         }
         _currentTier.value = tier
-        _statusMessage.value = if (hasPro) "ProfilePulse ${tier.title} is Active" else "Free Tier (Pro inactive)"
+        _statusMessage.value = if (hasPro) "Suiter ${tier.title} is Active" else "Free Tier (Pro inactive)"
         Log.i(TAG, "Entitlement check: active=$hasPro, tier=${tier.title}")
     }
 
@@ -195,7 +195,7 @@ object RevenueCatService {
         if (!isConfigured || !_isLiveSdkActive.value) {
             // Instant seamless Sandbox purchase for emulator / test mode
             toggleProSimulated(true, targetTier)
-            _statusMessage.value = "ProfilePulse ${targetTier.title} Unlocked (Sandbox Mode)"
+            _statusMessage.value = "Suiter ${targetTier.title} Unlocked (Sandbox Mode)"
             return
         }
 
@@ -225,7 +225,7 @@ object RevenueCatService {
         if (!isConfigured || !_isLiveSdkActive.value) {
             // Sandbox restore
             toggleProSimulated(true, SubscriptionTier.MONTHLY)
-            _statusMessage.value = "ProfilePulse Pro Restored (Sandbox Mode)"
+            _statusMessage.value = "Suiter Pro Restored (Sandbox Mode)"
             return
         }
 

@@ -14,7 +14,13 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.ui.ProfileViewModel
 import com.example.ui.ScreenState
 import com.example.ui.screens.*
-import com.example.ui.theme.ProfilePulseTheme
+import com.example.ui.theme.SuiterTheme
+
+import androidx.compose.ui.platform.LocalContext
+import com.example.ui.components.CoachDatingAppMatchDialog
+import com.example.ui.components.PersonalBiographyModal
+import com.example.ui.components.ProfileCreationModal
+import com.example.ui.components.RateMeDialog
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -22,9 +28,9 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         com.example.data.service.RevenueCatService.initialize(this)
         setContent {
-            ProfilePulseTheme {
+            com.example.ui.theme.SuiterTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    ProfilePulseApp()
+                    SuiterApp()
                 }
             }
         }
@@ -32,9 +38,14 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun ProfilePulseApp(
+fun SuiterApp(
     viewModel: ProfileViewModel = viewModel()
 ) {
+    val context = LocalContext.current
+    LaunchedEffect(Unit) {
+        viewModel.initContext(context)
+    }
+
     val screenState by viewModel.screenState.collectAsStateWithLifecycle()
     val isAgeConfirmed by viewModel.isAgeConfirmed.collectAsStateWithLifecycle()
     val isTermsAccepted by viewModel.isTermsAccepted.collectAsStateWithLifecycle()
@@ -51,6 +62,14 @@ fun ProfilePulseApp(
     val copilotReplies by viewModel.copilotReplies.collectAsStateWithLifecycle()
     val isPremium by viewModel.isPremium.collectAsStateWithLifecycle()
     val reports by viewModel.reports.collectAsStateWithLifecycle()
+    val userBiography by viewModel.userBiography.collectAsStateWithLifecycle()
+    val showRateMeDialog by viewModel.showRateMeDialog.collectAsStateWithLifecycle()
+    val showBiographyDialog by viewModel.showBiographyDialog.collectAsStateWithLifecycle()
+    val showDatingAppMatchDialog by viewModel.showDatingAppMatchDialog.collectAsStateWithLifecycle()
+    val recommendedApp by viewModel.recommendedApp.collectAsStateWithLifecycle()
+    val showProfileCreationModal by viewModel.showProfileCreationModal.collectAsStateWithLifecycle()
+    val copiedContentSnippet by viewModel.copiedContentSnippet.collectAsStateWithLifecycle()
+    val copiedContentTitle by viewModel.copiedContentTitle.collectAsStateWithLifecycle()
 
     // BackHandler for sub-screens
     if (screenState != ScreenState.ONBOARDING && screenState != ScreenState.PHOTO_UPLOAD) {
@@ -82,6 +101,7 @@ fun ProfilePulseApp(
                 platform = selectedPlatform,
                 photos = userPhotos,
                 bio = userBio,
+                biography = userBiography,
                 onPhotosSelected = { uris ->
                     viewModel.addPhotos(uris)
                 },
@@ -99,6 +119,9 @@ fun ProfilePulseApp(
                 },
                 onOpenCompatibleApps = {
                     viewModel.navigateTo(ScreenState.COMPATIBLE_APPS)
+                },
+                onOpenBiography = {
+                    viewModel.openBiographyDialog()
                 }
             )
         }
@@ -149,10 +172,17 @@ fun ProfilePulseApp(
                 currentBio = userBio,
                 rewrites = bioRewrites,
                 hingePrompts = hingePrompts,
+                biography = userBiography,
                 isPremium = isPremium,
                 onOpenPaywall = { viewModel.navigateTo(ScreenState.PAYWALL) },
                 onGenerateRewrites = { viewModel.generateBioRewrites() },
                 onGeneratePrompts = { viewModel.generateHingePrompts() },
+                onCopyOutput = { text, title ->
+                    viewModel.triggerProfileCreationModal(text, title)
+                },
+                onEditBiography = {
+                    viewModel.openBiographyDialog()
+                },
                 onBack = { viewModel.navigateBack() },
                 onReportSubmitted = { targetType, snippet, category ->
                     viewModel.submitReport(targetType, snippet, category)
@@ -167,6 +197,9 @@ fun ProfilePulseApp(
                 onOpenPaywall = { viewModel.navigateTo(ScreenState.PAYWALL) },
                 onAskCopilot = { context, isReply ->
                     viewModel.askCopilot(context, isReply)
+                },
+                onCopyOutput = { text, title ->
+                    viewModel.triggerProfileCreationModal(text, title)
                 },
                 onBack = { viewModel.navigateBack() },
                 onReportSubmitted = { targetType, snippet, category ->
@@ -229,5 +262,45 @@ fun ProfilePulseApp(
                 onBack = { viewModel.navigateBack() }
             )
         }
+    }
+
+    // Modal Dialogs Overlays
+    if (showRateMeDialog) {
+        RateMeDialog(
+            onRateClicked = { viewModel.dismissRateMe(context) },
+            onDismiss = { viewModel.dismissRateMe(context) }
+        )
+    }
+
+    if (showBiographyDialog) {
+        PersonalBiographyModal(
+            initialBio = userBiography,
+            onSaveBiography = { newBio ->
+                viewModel.submitBiography(newBio, context)
+            },
+            onDismiss = { viewModel.dismissBiographyDialog() }
+        )
+    }
+
+    if (showDatingAppMatchDialog && recommendedApp != null) {
+        CoachDatingAppMatchDialog(
+            recommendation = recommendedApp!!,
+            onApplyPlatform = { platform ->
+                viewModel.applyRecommendedDatingApp(platform)
+            },
+            onDismiss = { viewModel.dismissDatingAppMatch() }
+        )
+    }
+
+    if (showProfileCreationModal) {
+        ProfileCreationModal(
+            copiedText = copiedContentSnippet,
+            title = copiedContentTitle,
+            platform = selectedPlatform,
+            biography = userBiography,
+            leadPhoto = userPhotos.firstOrNull(),
+            onEditBiography = { viewModel.openBiographyDialog() },
+            onDismiss = { viewModel.dismissProfileCreationModal() }
+        )
     }
 }

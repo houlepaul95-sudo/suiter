@@ -29,6 +29,8 @@ import com.example.ui.components.AiLabelBadge
 import com.example.ui.components.ReportResultButton
 import com.example.ui.theme.RosePrimary
 
+import com.example.data.model.UserBiography
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BioRewriterScreen(
@@ -36,10 +38,13 @@ fun BioRewriterScreen(
     currentBio: String,
     rewrites: List<BioRewrite>,
     hingePrompts: List<HingePromptResult>,
+    biography: UserBiography = UserBiography(),
     isPremium: Boolean = false,
     onOpenPaywall: () -> Unit = {},
     onGenerateRewrites: () -> Unit,
     onGeneratePrompts: () -> Unit,
+    onCopyOutput: (text: String, title: String) -> Unit = { _, _ -> },
+    onEditBiography: () -> Unit = {},
     onBack: () -> Unit,
     onReportSubmitted: (targetType: String, snippet: String, category: String) -> Unit
 ) {
@@ -90,6 +95,49 @@ fun BioRewriterScreen(
                 )
             }
 
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // User Dossier Integration Banner
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onEditBiography() },
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                border = CardDefaults.outlinedCardBorder()
+            ) {
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                        Icon(imageVector = Icons.Default.Badge, contentDescription = null, tint = RosePrimary, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column {
+                            val bioDetails = listOfNotNull(
+                                biography.jobTitle.takeIf { it.isNotBlank() },
+                                biography.favoriteFood.takeIf { it.isNotBlank() },
+                                biography.hobbies.takeIf { it.isNotBlank() }
+                            ).joinToString(" • ")
+
+                            Text(
+                                text = if (bioDetails.isNotBlank()) "Dossier: $bioDetails" else "Complete Profile Dossier to Personalize",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.sp,
+                                maxLines = 1
+                            )
+                            Text(
+                                text = "Tuned for ${platform.displayName} • Tap to edit persona",
+                                fontSize = 10.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    Icon(imageVector = Icons.Default.Edit, contentDescription = "Edit Dossier", tint = RosePrimary, modifier = Modifier.size(16.dp))
+                }
+            }
+
             Spacer(modifier = Modifier.height(12.dp))
 
             TabRow(
@@ -123,7 +171,7 @@ fun BioRewriterScreen(
                     Icon(imageVector = Icons.Default.TipsAndUpdates, contentDescription = null, tint = RosePrimary, modifier = Modifier.size(20.dp))
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Coach Insight: Generic bios get ignored. These rewrites weave your actual interests into conversational hooks, playful wagers, and date invitations.",
+                        text = "Coach Directive: Generic bios get swiped away in 0.5 seconds. These rewrites weave your real job, favorite foods, and weekend banter into high-converting date invitations.",
                         fontSize = 11.sp,
                         color = MaterialTheme.colorScheme.onSurface,
                         lineHeight = 15.sp
@@ -140,11 +188,19 @@ fun BioRewriterScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Bio Variations (Tailored to You)", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                    TextButton(onClick = onGenerateRewrites) {
+                    Column {
+                        Text("Bio Variations (Tailored to You)", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        Text("Regenerates seasoned coach variations", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Button(
+                        onClick = onGenerateRewrites,
+                        modifier = Modifier.height(36.dp).testTag("regenerate_bios_button"),
+                        colors = ButtonDefaults.buttonColors(containerColor = RosePrimary),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
                         Icon(imageVector = Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(14.dp))
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("Regenerate", fontSize = 12.sp)
+                        Text("Regenerate Variations", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
                 }
 
@@ -176,6 +232,7 @@ fun BioRewriterScreen(
                                                 val clip = ClipData.newPlainText("Bio Rewrite", item.bioText)
                                                 clipboard.setPrimaryClip(clip)
                                                 Toast.makeText(context, "Copied bio to clipboard!", Toast.LENGTH_SHORT).show()
+                                                onCopyOutput(item.bioText, "Bio Rewrite: ${item.tone}")
                                             },
                                             modifier = Modifier.size(32.dp).testTag("copy_bio_button")
                                         ) {
@@ -237,7 +294,7 @@ fun BioRewriterScreen(
                                         horizontalAlignment = Alignment.CenterHorizontally
                                     ) {
                                         Text(
-                                            text = "Unlock ${item.tone} style with ProfilePulse Pro",
+                                            text = "Unlock ${item.tone} style with Suiter Pro",
                                             fontSize = 13.sp,
                                             fontWeight = FontWeight.Medium,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -294,6 +351,7 @@ fun BioRewriterScreen(
                                                 val clip = ClipData.newPlainText("Hinge Prompt", "${prompt.promptQuestion}\n${prompt.promptAnswer}")
                                                 clipboard.setPrimaryClip(clip)
                                                 Toast.makeText(context, "Copied prompt answer!", Toast.LENGTH_SHORT).show()
+                                                onCopyOutput("${prompt.promptQuestion}\n${prompt.promptAnswer}", "Hinge Prompt: ${prompt.promptQuestion}")
                                             },
                                             modifier = Modifier.size(32.dp).testTag("copy_prompt_button")
                                         ) {

@@ -46,7 +46,7 @@ private val LightColorScheme = lightColorScheme(
 )
 
 @Composable
-fun ProfilePulseTheme(
+fun SuiterTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     dynamicColor: Boolean = false, // Keep branded romantic palette consistent
     content: @Composable () -> Unit
@@ -66,3 +66,10 @@ fun ProfilePulseTheme(
         content = content
     )
 }
+
+@Composable
+fun ProfilePulseTheme(
+    darkTheme: Boolean = isSystemInDarkTheme(),
+    dynamicColor: Boolean = false,
+    content: @Composable () -> Unit
+) = SuiterTheme(darkTheme, dynamicColor, content)

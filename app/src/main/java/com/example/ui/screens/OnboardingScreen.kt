@@ -36,6 +36,13 @@ fun OnboardingScreen(
     onViewTerms: () -> Unit
 ) {
     var step by remember { mutableStateOf(1) } // 1: Age & Intro, 2: Prominent Disclosure & Consent, 3: Dating App Selection
+    var birthYearInput by remember { mutableStateOf("") }
+    val currentYear = 2026
+    val parsedBirthYear = birthYearInput.toIntOrNull()
+    val calculatedAge = parsedBirthYear?.let { currentYear - it }
+    val isUnder18 = calculatedAge != null && calculatedAge < 18
+    val isAdultYear = parsedBirthYear != null && parsedBirthYear in 1920..2008
+
     var isAdultConfirmed by remember { mutableStateOf(false) }
     var termsAgreed by remember { mutableStateOf(false) }
     var disclosureAgreed by remember { mutableStateOf(false) }
@@ -59,7 +66,7 @@ fun OnboardingScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "ProfilePulse",
+                        text = "Suiter",
                         fontWeight = FontWeight.Black,
                         fontSize = 20.sp,
                         color = RosePrimary
@@ -155,21 +162,64 @@ fun OnboardingScreen(
                             }
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
-                                text = "ProfilePulse is exclusively for adults aged 18 and older. We strictly prohibit minors and enforce zero tolerance for harmful or non-consensual content.",
+                                text = "Suiter is exclusively for adults aged 18 and older. We strictly prohibit minors and enforce zero tolerance for harmful or non-consensual content.",
                                 fontSize = 13.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 lineHeight = 18.sp
                             )
                             Spacer(modifier = Modifier.height(12.dp))
+
+                            OutlinedTextField(
+                                value = birthYearInput,
+                                onValueChange = {
+                                    if (it.length <= 4 && it.all { c -> c.isDigit() }) {
+                                        birthYearInput = it
+                                        if (it.toIntOrNull()?.let { y -> currentYear - y >= 18 && y in 1920..2008 } == true) {
+                                            isAdultConfirmed = true
+                                        } else {
+                                            isAdultConfirmed = false
+                                        }
+                                    }
+                                },
+                                label = { Text("Enter Birth Year (YYYY)") },
+                                placeholder = { Text("e.g. 1999") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth().testTag("onboarding_birth_year_input"),
+                                trailingIcon = {
+                                    if (calculatedAge != null) {
+                                        Text(
+                                            text = if (isUnder18) "Under 18" else "Age $calculatedAge ✓",
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (isUnder18) MaterialTheme.colorScheme.error else com.example.ui.theme.GreenSuccess,
+                                            modifier = Modifier.padding(end = 10.dp)
+                                        )
+                                    }
+                                }
+                            )
+
+                            if (isUnder18) {
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "⛔ You must be 18 or older to create a profile.",
+                                    color = MaterialTheme.colorScheme.error,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clickable { isAdultConfirmed = !isAdultConfirmed }
+                                    .clickable { if (isAdultYear) isAdultConfirmed = !isAdultConfirmed }
                             ) {
                                 Checkbox(
-                                    checked = isAdultConfirmed,
-                                    onCheckedChange = { isAdultConfirmed = it },
+                                    checked = isAdultConfirmed && isAdultYear,
+                                    onCheckedChange = { if (isAdultYear) isAdultConfirmed = it },
+                                    enabled = isAdultYear,
                                     modifier = Modifier.testTag("age_confirm_checkbox")
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
@@ -187,7 +237,7 @@ fun OnboardingScreen(
 
                     Button(
                         onClick = { step = 2 },
-                        enabled = isAdultConfirmed,
+                        enabled = isAdultConfirmed && isAdultYear,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(52.dp)

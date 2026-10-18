@@ -354,7 +354,7 @@ fun ScoreRevealScreen(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(imageVector = Icons.Default.CheckCircle, contentDescription = null, tint = GreenSuccess)
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("ProfilePulse Pro Active", fontWeight = FontWeight.Bold, color = GreenSuccess)
+                            Text("Suiter Pro Active", fontWeight = FontWeight.Bold, color = GreenSuccess)
                         }
                         Spacer(modifier = Modifier.height(6.dp))
                         Text("All 6-slot photo red-flag fixes, bio styles, and dating copilot date-closers are fully unlocked.", fontSize = 12.sp)
@@ -390,15 +390,37 @@ fun ScoreRevealScreen(
                                         horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
                                         Text(detail.label, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = RosePrimary)
-                                        Text("${detail.ratingScore}/100", fontWeight = FontWeight.Black, fontSize = 12.sp)
+                                        Text("${detail.ratingScore}/100", fontWeight = FontWeight.Black, fontSize = 12.sp, color = if (detail.ratingScore < 70) CoralAccent else RosePrimary)
+                                    }
+                                    if (detail.honestCritique.isNotBlank()) {
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        Surface(
+                                            color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.25f),
+                                            shape = RoundedCornerShape(6.dp)
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(6.dp),
+                                                verticalAlignment = Alignment.Top
+                                            ) {
+                                                Icon(imageVector = Icons.Default.Gavel, contentDescription = null, tint = CoralAccent, modifier = Modifier.size(14.dp))
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Text(
+                                                    text = detail.honestCritique,
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.Medium,
+                                                    color = MaterialTheme.colorScheme.onSurface,
+                                                    lineHeight = 15.sp
+                                                )
+                                            }
+                                        }
                                     }
                                     if (detail.flags.isNotEmpty()) {
-                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Spacer(modifier = Modifier.height(6.dp))
                                         detail.flags.forEach { flag ->
                                             Row(verticalAlignment = Alignment.CenterVertically) {
                                                 Icon(imageVector = Icons.Default.WarningAmber, contentDescription = null, tint = CoralAccent, modifier = Modifier.size(14.dp))
                                                 Spacer(modifier = Modifier.width(4.dp))
-                                                Text("Fix: $flag", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface)
+                                                Text("Honest Fix: $flag", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface)
                                             }
                                         }
                                     }

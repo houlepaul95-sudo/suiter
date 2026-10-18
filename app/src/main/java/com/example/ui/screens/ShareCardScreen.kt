@@ -122,7 +122,7 @@ fun ShareCardScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("ProfilePulse", fontWeight = FontWeight.Black, fontSize = 16.sp, color = RosePrimary)
+                            Text("Suiter", fontWeight = FontWeight.Black, fontSize = 16.sp, color = RosePrimary)
                             AiLabelBadge(label = "Verified AI Audit")
                         }
 
@@ -179,7 +179,7 @@ fun ShareCardScreen(
                         Spacer(modifier = Modifier.height(12.dp))
 
                         Text(
-                            text = "Audit your dating profile at profilepulse.app/audit",
+                            text = "Audit your dating profile at suiter.app/audit",
                             fontSize = 10.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -194,7 +194,7 @@ fun ShareCardScreen(
                             action = Intent.ACTION_SEND
                             putExtra(
                                 Intent.EXTRA_TEXT,
-                                "I got my dating profile audited by ProfilePulse AI! Score: ${audit?.overallScore ?: 78}/100. Get your photos and bio optimized too: https://profilepulse.app/invite?ref=audit"
+                                "I got my dating profile audited by Suiter AI! Score: ${audit?.overallScore ?: 78}/100. Get your photos and bio optimized too: https://suiter.app/invite?ref=audit"
                             )
                             type = "text/plain"
                         }
@@ -238,7 +238,7 @@ fun ShareCardScreen(
                         }
                         Spacer(modifier = Modifier.height(10.dp))
                         Text(
-                            text = "\"Hey! I'm using ProfilePulse to level up my Hinge profile. Could you give my photos an honest, friendly critique? You can accept or decline anytime! Link: https://profilepulse.app/roast?invite=friend\"",
+                            text = "\"Hey! I'm using Suiter to level up my Hinge profile. Could you give my photos an honest, friendly critique? You can accept or decline anytime! Link: https://suiter.app/roast?invite=friend\"",
                             fontSize = 12.sp,
                             fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
                             lineHeight = 17.sp
@@ -260,7 +260,7 @@ fun ShareCardScreen(
                             action = Intent.ACTION_SEND
                             putExtra(
                                 Intent.EXTRA_TEXT,
-                                "Hey! I'm tuning my dating profile with ProfilePulse. Would love your honest, friendly roast and advice: https://profilepulse.app/roast?invite=friend"
+                                "Hey! I'm tuning my dating profile with Suiter. Would love your honest, friendly roast and advice: https://suiter.app/roast?invite=friend"
                             )
                             type = "text/plain"
                         }

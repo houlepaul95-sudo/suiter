@@ -22,6 +22,6 @@ dependencyResolutionManagement {
   }
 }
 
-rootProject.name = "ProfilePulse"
+rootProject.name = "Suiter"
 
 include(":app")

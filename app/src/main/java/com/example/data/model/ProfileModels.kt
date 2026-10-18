@@ -11,10 +11,37 @@ data class PhotoAudit(
     val photoIndex: Int,
     val label: String,
     val isLeadPick: Boolean,
-    val ratingScore: Int, // e.g. 88
+    val ratingScore: Int, // e.g. 58, 72, 84
+    val honestCritique: String = "",
     val strengths: List<String>,
     val flags: List<String>,
     val actionTip: String
+)
+
+data class UserBiography(
+    val birthYear: Int? = null,
+    val age: Int? = null,
+    val raceOrHeritage: String = "",
+    val genderIdentity: String = "Man",
+    val jobTitle: String = "",
+    val hobbies: String = "",
+    val socialFun: String = "",
+    val favoriteFood: String = "",
+    val datingGoals: String = "",
+    val isCompleted: Boolean = false,
+    val savedToFirebase: Boolean = false,
+    val lastUpdated: Long = System.currentTimeMillis()
+)
+
+data class DatingAppRecommendation(
+    val appName: String,
+    val matchScore: String = "96% Match",
+    val badge: String = "Coach Top Pick",
+    val coachHeadline: String,
+    val whyItMatchesProfile: List<String>,
+    val recommendedBioAngle: String,
+    val targetPlatform: DatingPlatform,
+    val playStorePackage: String
 )
 
 data class ProfileAuditResult(

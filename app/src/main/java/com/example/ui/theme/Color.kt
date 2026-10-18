@@ -2,7 +2,7 @@ package com.example.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Modern Romantic & Electric Rose Palette for ProfilePulse
+// Modern Romantic & Electric Rose Palette for Suiter
 val RosePrimary = Color(0xFFE11D48)       // Vibrant Rose 600
 val RosePrimaryDark = Color(0xFFBE123C)   // Deep Rose 700
 val RosePrimaryLight = Color(0xFFFB7185)  // Soft Rose 400

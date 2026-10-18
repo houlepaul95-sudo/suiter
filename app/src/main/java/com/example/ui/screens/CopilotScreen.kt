@@ -39,6 +39,7 @@ fun CopilotScreen(
     isPremium: Boolean = false,
     onOpenPaywall: () -> Unit = {},
     onAskCopilot: (context: String, isReplyMode: Boolean) -> Unit,
+    onCopyOutput: (text: String, title: String) -> Unit = { _, _ -> },
     onBack: () -> Unit,
     onReportSubmitted: (targetType: String, snippet: String, category: String) -> Unit
 ) {
@@ -272,6 +273,7 @@ fun CopilotScreen(
                                             val clip = ClipData.newPlainText("Copilot Reply", reply.text)
                                             clipboard.setPrimaryClip(clip)
                                             Toast.makeText(context, "Copied coach reply to clipboard!", Toast.LENGTH_SHORT).show()
+                                            onCopyOutput(reply.text, "Copilot: ${reply.style}")
                                         },
                                         modifier = Modifier.size(28.dp).testTag("copy_copilot_reply_button")
                                     ) {

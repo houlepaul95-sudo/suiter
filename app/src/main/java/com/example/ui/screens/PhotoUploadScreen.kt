@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import coil.compose.AsyncImage
 import com.example.data.model.DatingPlatform
+import com.example.data.model.UserBiography
 import com.example.data.model.UserPhoto
 import com.example.ui.components.AiLabelBadge
 import com.example.ui.theme.CoralAccent
@@ -52,12 +53,14 @@ fun PhotoUploadScreen(
     platform: DatingPlatform,
     photos: List<UserPhoto>,
     bio: String,
+    biography: UserBiography = UserBiography(),
     onPhotosSelected: (List<String>) -> Unit,
     onPhotoRemoved: (String) -> Unit,
     onBioChanged: (String) -> Unit,
     onStartAnalysis: () -> Unit,
     onOpenSettings: () -> Unit,
-    onOpenCompatibleApps: () -> Unit = {}
+    onOpenCompatibleApps: () -> Unit = {},
+    onOpenBiography: () -> Unit = {}
 ) {
     var showSourceDialog by remember { mutableStateOf(false) }
     var showLibraryDialog by remember { mutableStateOf(false) }
@@ -129,7 +132,7 @@ fun PhotoUploadScreen(
             TopAppBar(
                 title = {
                     Column(modifier = Modifier.clickable { onOpenCompatibleApps() }) {
-                        Text("ProfilePulse Audit", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                        Text("Suiter Audit", fontWeight = FontWeight.Bold, fontSize = 18.sp)
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 text = "Target: ${platform.displayName}",
@@ -148,6 +151,9 @@ fun PhotoUploadScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = onOpenBiography, modifier = Modifier.testTag("dossier_profile_button")) {
+                        Icon(imageVector = Icons.Default.Badge, contentDescription = "Profile Dossier", tint = RosePrimary)
+                    }
                     IconButton(onClick = onOpenCompatibleApps, modifier = Modifier.testTag("compatible_apps_upload_button")) {
                         Icon(imageVector = Icons.Default.Explore, contentDescription = "Find Compatible Apps")
                     }

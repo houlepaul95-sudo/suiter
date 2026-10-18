@@ -313,7 +313,7 @@ fun CompatibleAppsScreen(
                         onPlatformSelected(platform)
                         Toast.makeText(
                             context,
-                            "ProfilePulse active target set to ${app.name}!",
+                            "Suiter active target set to ${app.name}!",
                             Toast.LENGTH_SHORT
                         ).show()
                     },

@@ -225,7 +225,7 @@ fun PaywallScreen(
                             onSuccess = { customerInfo ->
                                 isProcessing = false
                                 onPurchaseCompleted()
-                                Toast.makeText(context, "Welcome to ProfilePulse ${targetTier.title}! Entitlement activated.", Toast.LENGTH_LONG).show()
+                                Toast.makeText(context, "Welcome to Suiter ${targetTier.title}! Entitlement activated.", Toast.LENGTH_LONG).show()
                                 onClose()
                             },
                             onError = { error, userCancelled ->
@@ -243,7 +243,7 @@ fun PaywallScreen(
                         // In virtual emulator / offline mode without configured Google Play Billing credentials
                         RevenueCatService.toggleProSimulated(true, targetTier)
                         onPurchaseCompleted()
-                        Toast.makeText(context, "Subscribed! (ProfilePulse ${targetTier.title} entitlement unlocked)", Toast.LENGTH_LONG).show()
+                        Toast.makeText(context, "Subscribed! (Suiter ${targetTier.title} entitlement unlocked)", Toast.LENGTH_LONG).show()
                         isProcessing = false
                         onClose()
                     }

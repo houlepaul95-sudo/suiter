@@ -48,6 +48,34 @@ class ProfileViewModel(
     val isPremium = repository.isPremiumUser
     val subscriptionTier = repository.subscriptionTier
     val reports = repository.reports
+    val userBiography = repository.userBiography
+    val hasSeenRateMe = repository.hasSeenRateMe
+    val hasCompletedBiography = repository.hasCompletedBiography
+
+    // Dialog & Flow States
+    private val _showRateMeDialog = MutableStateFlow(false)
+    val showRateMeDialog: StateFlow<Boolean> = _showRateMeDialog.asStateFlow()
+
+    private val _showBiographyDialog = MutableStateFlow(false)
+    val showBiographyDialog: StateFlow<Boolean> = _showBiographyDialog.asStateFlow()
+
+    private val _showDatingAppMatchDialog = MutableStateFlow(false)
+    val showDatingAppMatchDialog: StateFlow<Boolean> = _showDatingAppMatchDialog.asStateFlow()
+
+    private val _recommendedApp = MutableStateFlow<DatingAppRecommendation?>(null)
+    val recommendedApp: StateFlow<DatingAppRecommendation?> = _recommendedApp.asStateFlow()
+
+    private val _showProfileCreationModal = MutableStateFlow(false)
+    val showProfileCreationModal: StateFlow<Boolean> = _showProfileCreationModal.asStateFlow()
+
+    private val _copiedContentSnippet = MutableStateFlow("")
+    val copiedContentSnippet: StateFlow<String> = _copiedContentSnippet.asStateFlow()
+
+    private val _copiedContentTitle = MutableStateFlow("Bio Rewrite")
+    val copiedContentTitle: StateFlow<String> = _copiedContentTitle.asStateFlow()
+
+    private val _underAgeError = MutableStateFlow<String?>(null)
+    val underAgeError: StateFlow<String?> = _underAgeError.asStateFlow()
 
     init {
         // Synchronize RevenueCat entitlement and subscription tier
@@ -57,9 +85,19 @@ class ProfileViewModel(
             }
         }
 
-        // If already consented (e.g. state preserved), start at Photo Upload
+        // If already consented, start at Photo Upload
         if (isAgeConfirmed.value && isTermsAccepted.value && isDisclosureAccepted.value) {
             _screenState.value = ScreenState.PHOTO_UPLOAD
+        }
+    }
+
+    fun initContext(context: android.content.Context) {
+        repository.initContext(context)
+        // Check startup dialog flow: If user hasn't seen Rate Me dialog yet, show it on opening!
+        if (!repository.hasSeenRateMe.value) {
+            _showRateMeDialog.value = true
+        } else if (!repository.hasCompletedBiography.value) {
+            _showBiographyDialog.value = true
         }
     }
 
@@ -169,9 +207,63 @@ class ProfileViewModel(
         _screenState.value = ScreenState.PHOTO_UPLOAD
     }
 
+    fun dismissRateMe(context: android.content.Context) {
+        repository.setHasSeenRateMe(true, context)
+        _showRateMeDialog.value = false
+        // Next in flow: Personal biography modal pops up!
+        if (!repository.hasCompletedBiography.value) {
+            _showBiographyDialog.value = true
+        }
+    }
+
+    fun openBiographyDialog() {
+        _showBiographyDialog.value = true
+    }
+
+    fun dismissBiographyDialog() {
+        _showBiographyDialog.value = false
+    }
+
+    fun submitBiography(bio: UserBiography, context: android.content.Context): Boolean {
+        _underAgeError.value = null
+        val success = repository.saveUserBiography(bio, context)
+        if (!success) {
+            _underAgeError.value = "Suiter is strictly for adults 18+. Based on your birth year, you are not eligible to create a profile."
+            return false
+        }
+        _showBiographyDialog.value = false
+        // Calculate tailored dating app match from coach and show recommendation!
+        val recommendation = repository.getRecommendedDatingSite()
+        _recommendedApp.value = recommendation
+        _showDatingAppMatchDialog.value = true
+        return true
+    }
+
+    fun dismissDatingAppMatch() {
+        _showDatingAppMatchDialog.value = false
+    }
+
+    fun applyRecommendedDatingApp(platform: DatingPlatform) {
+        repository.setPlatform(platform)
+        _showDatingAppMatchDialog.value = false
+    }
+
+    fun triggerProfileCreationModal(snippet: String, title: String = "Generated Output") {
+        _copiedContentSnippet.value = snippet
+        _copiedContentTitle.value = title
+        _showProfileCreationModal.value = true
+    }
+
+    fun dismissProfileCreationModal() {
+        _showProfileCreationModal.value = false
+    }
+
     fun deleteEntireAccount() {
         repository.deleteEntireAccountAndData()
         _screenBackStack.clear()
         _screenState.value = ScreenState.ONBOARDING
+        _showRateMeDialog.value = false
+        _showBiographyDialog.value = false
+        _showProfileCreationModal.value = false
     }
 }

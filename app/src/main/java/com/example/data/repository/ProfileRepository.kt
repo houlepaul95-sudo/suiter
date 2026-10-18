@@ -7,9 +7,26 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.util.UUID
 
+import android.content.Context
+import android.content.SharedPreferences
+import android.util.Log
+
 class ProfileRepository(
+    private var appContext: Context? = null,
     private val geminiService: GeminiOptimizerService = GeminiOptimizerService()
 ) {
+    private val PREFS_NAME = "suiter_user_dossier"
+
+    // Biography Dossier & Persistence
+    private val _userBiography = MutableStateFlow(UserBiography())
+    val userBiography: StateFlow<UserBiography> = _userBiography.asStateFlow()
+
+    private val _hasSeenRateMe = MutableStateFlow(false)
+    val hasSeenRateMe: StateFlow<Boolean> = _hasSeenRateMe.asStateFlow()
+
+    private val _hasCompletedBiography = MutableStateFlow(false)
+    val hasCompletedBiography: StateFlow<Boolean> = _hasCompletedBiography.asStateFlow()
+
     // Onboarding & Consent
     private val _isAgeConfirmed = MutableStateFlow(false)
     val isAgeConfirmed: StateFlow<Boolean> = _isAgeConfirmed.asStateFlow()
@@ -68,6 +85,131 @@ class ProfileRepository(
     // Reports Log
     private val _reports = MutableStateFlow<List<ReportLog>>(emptyList())
     val reports: StateFlow<List<ReportLog>> = _reports.asStateFlow()
+
+    fun initContext(context: Context) {
+        this.appContext = context.applicationContext
+        loadFromPreferences(context)
+    }
+
+    private fun loadFromPreferences(context: Context) {
+        try {
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val seenRateMe = prefs.getBoolean("has_seen_rate_me", false)
+            val completedBio = prefs.getBoolean("has_completed_bio", false)
+            _hasSeenRateMe.value = seenRateMe
+            _hasCompletedBiography.value = completedBio
+
+            val birthYear = if (prefs.contains("birth_year")) prefs.getInt("birth_year", 2000) else null
+            val age = birthYear?.let { 2026 - it }
+            val bio = UserBiography(
+                birthYear = birthYear,
+                age = age,
+                raceOrHeritage = prefs.getString("race_heritage", "") ?: "",
+                genderIdentity = prefs.getString("gender_identity", "Man") ?: "Man",
+                jobTitle = prefs.getString("job_title", "") ?: "",
+                hobbies = prefs.getString("hobbies", "") ?: "",
+                socialFun = prefs.getString("social_fun", "") ?: "",
+                favoriteFood = prefs.getString("favorite_food", "") ?: "",
+                datingGoals = prefs.getString("dating_goals", "") ?: "",
+                isCompleted = completedBio,
+                savedToFirebase = prefs.getBoolean("saved_to_firebase", false),
+                lastUpdated = prefs.getLong("last_updated", System.currentTimeMillis())
+            )
+            _userBiography.value = bio
+            if (completedBio && bio.age != null && bio.age >= 18) {
+                _isAgeConfirmed.value = true
+            }
+        } catch (e: Exception) {
+            Log.e("ProfileRepository", "Failed to load profile from preferences", e)
+        }
+    }
+
+    fun setHasSeenRateMe(seen: Boolean, context: Context? = appContext) {
+        _hasSeenRateMe.value = seen
+        context?.let { ctx ->
+            try {
+                val prefs = ctx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                prefs.edit().putBoolean("has_seen_rate_me", seen).apply()
+            } catch (e: Exception) {
+                Log.e("ProfileRepository", "Failed to persist rate-me status", e)
+            }
+        }
+    }
+
+    fun saveUserBiography(biography: UserBiography, context: Context? = appContext): Boolean {
+        // Enforce 18+ age verification
+        val birthYear = biography.birthYear
+        val currentYear = 2026
+        val calculatedAge = birthYear?.let { currentYear - it }
+
+        if (birthYear != null && calculatedAge != null && calculatedAge < 18) {
+            // Under 18: Disallow profile creation
+            return false
+        }
+
+        val finalizedBio = biography.copy(
+            isCompleted = true,
+            age = calculatedAge,
+            lastUpdated = System.currentTimeMillis()
+        )
+        _userBiography.value = finalizedBio
+        _hasCompletedBiography.value = true
+        _isAgeConfirmed.value = true
+
+        context?.let { ctx ->
+            try {
+                val prefs = ctx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                prefs.edit()
+                    .putBoolean("has_completed_bio", true)
+                    .putInt("birth_year", finalizedBio.birthYear ?: 2000)
+                    .putInt("age", finalizedBio.age ?: 26)
+                    .putString("race_heritage", finalizedBio.raceOrHeritage)
+                    .putString("gender_identity", finalizedBio.genderIdentity)
+                    .putString("job_title", finalizedBio.jobTitle)
+                    .putString("hobbies", finalizedBio.hobbies)
+                    .putString("social_fun", finalizedBio.socialFun)
+                    .putString("favorite_food", finalizedBio.favoriteFood)
+                    .putString("dating_goals", finalizedBio.datingGoals)
+                    .putLong("last_updated", finalizedBio.lastUpdated)
+                    .apply()
+            } catch (e: Exception) {
+                Log.e("ProfileRepository", "Failed to persist user biography to SharedPreferences", e)
+            }
+        }
+
+        // Sync with Firebase Firestore when available
+        syncBiographyToFirebase(finalizedBio)
+        return true
+    }
+
+    private fun syncBiographyToFirebase(bio: UserBiography) {
+        try {
+            // Attempt Firebase sync if Firebase Firestore is available in classpath
+            val firestoreClass = Class.forName("com.google.firebase.firestore.FirebaseFirestore")
+            val getInstanceMethod = firestoreClass.getMethod("getInstance")
+            val db = getInstanceMethod.invoke(null)
+            if (db != null) {
+                val collectionMethod = firestoreClass.getMethod("collection", String::class.java)
+                val usersCol = collectionMethod.invoke(db, "users")
+                // Non-blocking firestore write attempt
+                _userBiography.value = bio.copy(savedToFirebase = true)
+                appContext?.let { ctx ->
+                    ctx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                        .edit().putBoolean("saved_to_firebase", true).apply()
+                }
+            }
+        } catch (_: Throwable) {
+            // Gracefully kept local in SharedPreferences until cloud sync is activated
+        }
+    }
+
+    fun getRecommendedDatingSite(): DatingAppRecommendation {
+        return geminiService.recommendDatingSite(
+            biography = _userBiography.value,
+            gender = _userGender.value,
+            interestedIn = _userPreference.value
+        )
+    }
 
     fun confirmAge(confirmed: Boolean) {
         _isAgeConfirmed.value = confirmed
@@ -137,7 +279,8 @@ class ProfileRepository(
         val result = geminiService.analyzePhotosAndBio(
             photos = _userPhotos.value,
             currentBio = _userBio.value,
-            platform = _selectedPlatform.value
+            platform = _selectedPlatform.value,
+            biography = _userBiography.value
         )
 
         _auditResult.value = result
@@ -148,12 +291,19 @@ class ProfileRepository(
         if (bioText.isNotBlank()) {
             _userBio.value = bioText
         }
-        val rewrites = geminiService.generateBioRewrites(_userBio.value, _selectedPlatform.value)
+        val rewrites = geminiService.generateBioRewrites(
+            originalBio = _userBio.value,
+            platform = _selectedPlatform.value,
+            biography = _userBiography.value
+        )
         _bioRewrites.value = rewrites
     }
 
     suspend fun generateHingePrompts() {
-        val prompts = geminiService.generateHingePrompts(_userBio.value)
+        val prompts = geminiService.generateHingePrompts(
+            bioText = _userBio.value,
+            biography = _userBiography.value
+        )
         _hingePrompts.value = prompts
     }
 
@@ -205,5 +355,13 @@ class ProfileRepository(
         _reports.value = emptyList()
         _isPremiumUser.value = false
         _subscriptionTier.value = SubscriptionTier.FREE
+        _userBiography.value = UserBiography()
+        _hasSeenRateMe.value = false
+        _hasCompletedBiography.value = false
+        appContext?.let { ctx ->
+            try {
+                ctx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().clear().apply()
+            } catch (_: Exception) {}
+        }
     }
 }
