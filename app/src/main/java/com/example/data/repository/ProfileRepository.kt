@@ -58,9 +58,12 @@ class ProfileRepository(
     private val _copilotReplies = MutableStateFlow<List<CopilotReply>>(emptyList())
     val copilotReplies: StateFlow<List<CopilotReply>> = _copilotReplies.asStateFlow()
 
-    // Subscriptions (Google Play Billing simulation)
+    // Subscriptions (RevenueCat & Google Play Billing)
     private val _isPremiumUser = MutableStateFlow(false)
     val isPremiumUser: StateFlow<Boolean> = _isPremiumUser.asStateFlow()
+
+    private val _subscriptionTier = MutableStateFlow(SubscriptionTier.FREE)
+    val subscriptionTier: StateFlow<SubscriptionTier> = _subscriptionTier.asStateFlow()
 
     // Reports Log
     private val _reports = MutableStateFlow<List<ReportLog>>(emptyList())
@@ -171,6 +174,16 @@ class ProfileRepository(
 
     fun setPremiumStatus(isPremium: Boolean) {
         _isPremiumUser.value = isPremium
+        if (!isPremium) {
+            _subscriptionTier.value = SubscriptionTier.FREE
+        } else if (_subscriptionTier.value == SubscriptionTier.FREE) {
+            _subscriptionTier.value = SubscriptionTier.MONTHLY
+        }
+    }
+
+    fun setSubscriptionTier(tier: SubscriptionTier) {
+        _subscriptionTier.value = tier
+        _isPremiumUser.value = tier != SubscriptionTier.FREE
     }
 
     // Google Play Policy compliant: Data Deletion
@@ -191,5 +204,6 @@ class ProfileRepository(
         _copilotReplies.value = emptyList()
         _reports.value = emptyList()
         _isPremiumUser.value = false
+        _subscriptionTier.value = SubscriptionTier.FREE
     }
 }

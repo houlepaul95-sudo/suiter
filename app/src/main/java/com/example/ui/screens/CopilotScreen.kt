@@ -36,6 +36,8 @@ import com.example.ui.theme.RosePrimary
 @Composable
 fun CopilotScreen(
     replies: List<CopilotReply>,
+    isPremium: Boolean = false,
+    onOpenPaywall: () -> Unit = {},
     onAskCopilot: (context: String, isReplyMode: Boolean) -> Unit,
     onBack: () -> Unit,
     onReportSubmitted: (targetType: String, snippet: String, category: String) -> Unit
@@ -230,8 +232,9 @@ fun CopilotScreen(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                replies.forEach { reply ->
+                replies.forEachIndexed { index, reply ->
                     val isRefusal = reply.id == "refusal"
+                    val isLocked = !isPremium && index > 0 && !isRefusal
 
                     Card(
                         modifier = Modifier
@@ -262,7 +265,7 @@ fun CopilotScreen(
                                     )
                                 }
 
-                                if (!isRefusal) {
+                                if (!isRefusal && !isLocked) {
                                     IconButton(
                                         onClick = {
                                             val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
@@ -274,51 +277,90 @@ fun CopilotScreen(
                                     ) {
                                         Icon(imageVector = Icons.Default.ContentCopy, contentDescription = "Copy", modifier = Modifier.size(16.dp))
                                     }
+                                } else if (isLocked) {
+                                    Surface(
+                                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                                        shape = RoundedCornerShape(6.dp)
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                        ) {
+                                            Icon(imageVector = Icons.Default.Lock, contentDescription = null, tint = RosePrimary, modifier = Modifier.size(12.dp))
+                                            Spacer(modifier = Modifier.width(3.dp))
+                                            Text("Pro Tier", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = RosePrimary)
+                                        }
+                                    }
                                 }
                             }
 
                             Spacer(modifier = Modifier.height(10.dp))
 
-                            Text(
-                                text = reply.text,
-                                fontSize = 14.sp,
-                                lineHeight = 19.sp,
-                                fontWeight = if (isRefusal) FontWeight.Medium else FontWeight.SemiBold
-                            )
+                            if (!isLocked) {
+                                Text(
+                                    text = reply.text,
+                                    fontSize = 14.sp,
+                                    lineHeight = 19.sp,
+                                    fontWeight = if (isRefusal) FontWeight.Medium else FontWeight.SemiBold
+                                )
 
-                            Spacer(modifier = Modifier.height(10.dp))
+                                Spacer(modifier = Modifier.height(10.dp))
 
-                            Card(
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)),
-                                shape = RoundedCornerShape(8.dp)
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(8.dp),
-                                    verticalAlignment = Alignment.Top
+                                Card(
+                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)),
+                                    shape = RoundedCornerShape(8.dp)
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Lightbulb,
-                                        contentDescription = null,
-                                        tint = GoldAccent,
-                                        modifier = Modifier.size(16.dp).padding(top = 1.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Row(
+                                        modifier = Modifier.padding(8.dp),
+                                        verticalAlignment = Alignment.Top
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Lightbulb,
+                                            contentDescription = null,
+                                            tint = GoldAccent,
+                                            modifier = Modifier.size(16.dp).padding(top = 1.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = reply.reason,
+                                            fontSize = 11.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            lineHeight = 15.sp
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(6.dp))
+
+                                ReportResultButton(
+                                    targetType = "Copilot Reply",
+                                    contentSnippet = reply.text,
+                                    onReportSubmitted = onReportSubmitted
+                                )
+                            } else {
+                                Column(
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
                                     Text(
-                                        text = reply.reason,
-                                        fontSize = 11.sp,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        lineHeight = 15.sp
+                                        text = "Tactical date-closing move & phone/voice note bridge",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Button(
+                                        onClick = onOpenPaywall,
+                                        modifier = Modifier.fillMaxWidth().height(38.dp),
+                                        shape = RoundedCornerShape(8.dp),
+                                        colors = ButtonDefaults.buttonColors(containerColor = RosePrimary)
+                                    ) {
+                                        Icon(imageVector = Icons.Default.LockOpen, contentDescription = null, modifier = Modifier.size(16.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text("Unlock Date-Closing Moves with Pro", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    }
                                 }
                             }
-
-                            Spacer(modifier = Modifier.height(6.dp))
-
-                            ReportResultButton(
-                                targetType = "Copilot Reply",
-                                contentSnippet = reply.text,
-                                onReportSubmitted = onReportSubmitted
-                            )
                         }
                     }
                 }

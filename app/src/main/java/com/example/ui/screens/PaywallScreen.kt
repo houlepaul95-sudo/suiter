@@ -54,6 +54,9 @@ fun PaywallScreen(
     val currentOffering by RevenueCatService.currentOffering.collectAsState()
     val isProActive by RevenueCatService.isProActive.collectAsState()
 
+    val isLiveSdk by RevenueCatService.isLiveSdkActive.collectAsState()
+    val currentTier by RevenueCatService.currentTier.collectAsState()
+
     // Match RevenueCat packages
     val rcWeeklyPackage = remember(currentOffering) {
         currentOffering?.weekly ?: currentOffering?.availablePackages?.find {
@@ -112,6 +115,21 @@ fun PaywallScreen(
 
             Spacer(modifier = Modifier.height(14.dp))
 
+            Surface(
+                color = if (isLiveSdk) GreenSuccess.copy(alpha = 0.15f) else RosePrimary.copy(alpha = 0.12f),
+                shape = RoundedCornerShape(20.dp)
+            ) {
+                Text(
+                    text = if (isLiveSdk) "RevenueCat Live SDK Active" else "RevenueCat Secure Subscriptions",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (isLiveSdk) GreenSuccess else RosePrimary,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
             Text(
                 text = "Unlock Your Complete Profile Advantage",
                 fontSize = 22.sp,
@@ -122,7 +140,7 @@ fun PaywallScreen(
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "Get in-depth AI red-flag fixes, optimal lead photo sequencing, unlimited bio rewrites, and the conversation copilot.",
+                text = "Choose your subscription tier to access full photo red-flag diagnoses, optimal lead photo sequencing, unlimited bio rewrites, and the conversation copilot.",
                 fontSize = 13.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
@@ -140,6 +158,7 @@ fun PaywallScreen(
                 BenefitItem("Targeted Red-Flag Flags (Detect sunglasses, hats, awkward crops)")
                 BenefitItem("Full Bio & Hinge Prompts Generator across 4 distinct tones")
                 BenefitItem("Dating Copilot for conversation rescue and date closing")
+                BenefitItem("Priority Gemini AI model processing for faster recommendations")
             }
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -148,7 +167,7 @@ fun PaywallScreen(
             val annualPriceText = rcAnnualPackage?.product?.price?.formatted ?: "$59.99 / year"
             PlanSelectionCard(
                 isSelected = selectedPlan == PlanSelection.ANNUAL,
-                title = "Annual Plan (Yearly)",
+                title = "Annual VIP (Yearly)",
                 badge = "BEST VALUE (SAVE 80%)",
                 priceHeadline = annualPriceText,
                 periodSubline = "Billed annually • about $1.15 / week",
@@ -161,7 +180,7 @@ fun PaywallScreen(
             val monthlyPriceText = rcMonthlyPackage?.product?.price?.formatted ?: "$14.99 / month"
             PlanSelectionCard(
                 isSelected = selectedPlan == PlanSelection.MONTHLY,
-                title = "Monthly Plan (\$rc_monthly)",
+                title = "Monthly Pro (\$rc_monthly)",
                 badge = "MOST POPULAR",
                 priceHeadline = monthlyPriceText,
                 periodSubline = "Includes 7-day free trial, then $monthlyPriceText",
@@ -175,7 +194,7 @@ fun PaywallScreen(
             val weeklyPriceText = rcWeeklyPackage?.product?.price?.formatted ?: "$6.99 / week"
             PlanSelectionCard(
                 isSelected = selectedPlan == PlanSelection.WEEKLY,
-                title = "Weekly Plan (\$rc_weekly)",
+                title = "Weekly Boost (\$rc_weekly)",
                 badge = null,
                 priceHeadline = weeklyPriceText,
                 periodSubline = "Billed weekly • No commitment",
@@ -193,6 +212,11 @@ fun PaywallScreen(
                         PlanSelection.MONTHLY -> rcMonthlyPackage
                         PlanSelection.ANNUAL -> rcAnnualPackage
                     }
+                    val targetTier = when (selectedPlan) {
+                        PlanSelection.ANNUAL -> com.example.data.model.SubscriptionTier.ANNUAL
+                        PlanSelection.MONTHLY -> com.example.data.model.SubscriptionTier.MONTHLY
+                        PlanSelection.WEEKLY -> com.example.data.model.SubscriptionTier.WEEKLY
+                    }
 
                     if (activity != null && targetPackage != null) {
                         RevenueCatService.purchase(
@@ -201,14 +225,15 @@ fun PaywallScreen(
                             onSuccess = { customerInfo ->
                                 isProcessing = false
                                 onPurchaseCompleted()
-                                Toast.makeText(context, "Welcome to ProfilePulse Pro! Entitlement activated.", Toast.LENGTH_LONG).show()
+                                Toast.makeText(context, "Welcome to ProfilePulse ${targetTier.title}! Entitlement activated.", Toast.LENGTH_LONG).show()
                                 onClose()
                             },
                             onError = { error, userCancelled ->
                                 isProcessing = false
                                 if (!userCancelled) {
                                     // If testing in emulator sandbox or no Google Play account attached, activate sandbox fallback
-                                    Toast.makeText(context, "RevenueCat: ${error.message}. Enabling sandbox preview.", Toast.LENGTH_SHORT).show()
+                                    RevenueCatService.toggleProSimulated(true, targetTier)
+                                    Toast.makeText(context, "RevenueCat: ${error.message}. ${targetTier.title} unlocked.", Toast.LENGTH_SHORT).show()
                                     onPurchaseCompleted()
                                     onClose()
                                 }
@@ -216,9 +241,9 @@ fun PaywallScreen(
                         )
                     } else {
                         // In virtual emulator / offline mode without configured Google Play Billing credentials
-                        RevenueCatService.toggleProSimulated(true)
+                        RevenueCatService.toggleProSimulated(true, targetTier)
                         onPurchaseCompleted()
-                        Toast.makeText(context, "Subscribed! (ProfilePulse Pro entitlement unlocked)", Toast.LENGTH_LONG).show()
+                        Toast.makeText(context, "Subscribed! (ProfilePulse ${targetTier.title} entitlement unlocked)", Toast.LENGTH_LONG).show()
                         isProcessing = false
                         onClose()
                     }

@@ -149,6 +149,8 @@ fun ProfilePulseApp(
                 currentBio = userBio,
                 rewrites = bioRewrites,
                 hingePrompts = hingePrompts,
+                isPremium = isPremium,
+                onOpenPaywall = { viewModel.navigateTo(ScreenState.PAYWALL) },
                 onGenerateRewrites = { viewModel.generateBioRewrites() },
                 onGeneratePrompts = { viewModel.generateHingePrompts() },
                 onBack = { viewModel.navigateBack() },
@@ -161,6 +163,8 @@ fun ProfilePulseApp(
         ScreenState.COPILOT -> {
             CopilotScreen(
                 replies = copilotReplies,
+                isPremium = isPremium,
+                onOpenPaywall = { viewModel.navigateTo(ScreenState.PAYWALL) },
                 onAskCopilot = { context, isReply ->
                     viewModel.askCopilot(context, isReply)
                 },

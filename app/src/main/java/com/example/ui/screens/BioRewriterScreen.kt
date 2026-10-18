@@ -36,6 +36,8 @@ fun BioRewriterScreen(
     currentBio: String,
     rewrites: List<BioRewrite>,
     hingePrompts: List<HingePromptResult>,
+    isPremium: Boolean = false,
+    onOpenPaywall: () -> Unit = {},
     onGenerateRewrites: () -> Unit,
     onGeneratePrompts: () -> Unit,
     onBack: () -> Unit,
@@ -151,7 +153,8 @@ fun BioRewriterScreen(
                         CircularProgressIndicator(color = RosePrimary)
                     }
                 } else {
-                    rewrites.forEach { item ->
+                    rewrites.forEachIndexed { index, item ->
+                        val isLocked = !isPremium && index > 0
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -166,52 +169,92 @@ fun BioRewriterScreen(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     SuggestionBadge(item.tone)
-                                    IconButton(
-                                        onClick = {
-                                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                            val clip = ClipData.newPlainText("Bio Rewrite", item.bioText)
-                                            clipboard.setPrimaryClip(clip)
-                                            Toast.makeText(context, "Copied bio to clipboard!", Toast.LENGTH_SHORT).show()
-                                        },
-                                        modifier = Modifier.size(32.dp).testTag("copy_bio_button")
-                                    ) {
-                                        Icon(imageVector = Icons.Default.ContentCopy, contentDescription = "Copy bio", modifier = Modifier.size(18.dp))
+                                    if (!isLocked) {
+                                        IconButton(
+                                            onClick = {
+                                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                                val clip = ClipData.newPlainText("Bio Rewrite", item.bioText)
+                                                clipboard.setPrimaryClip(clip)
+                                                Toast.makeText(context, "Copied bio to clipboard!", Toast.LENGTH_SHORT).show()
+                                            },
+                                            modifier = Modifier.size(32.dp).testTag("copy_bio_button")
+                                        ) {
+                                            Icon(imageVector = Icons.Default.ContentCopy, contentDescription = "Copy bio", modifier = Modifier.size(18.dp))
+                                        }
+                                    } else {
+                                        Surface(
+                                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                                            shape = RoundedCornerShape(6.dp)
+                                        ) {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                            ) {
+                                                Icon(imageVector = Icons.Default.Lock, contentDescription = null, tint = RosePrimary, modifier = Modifier.size(12.dp))
+                                                Spacer(modifier = Modifier.width(3.dp))
+                                                Text("Pro Tier", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = RosePrimary)
+                                            }
+                                        }
                                     }
                                 }
 
                                 Spacer(modifier = Modifier.height(10.dp))
 
-                                Text(
-                                    text = item.bioText,
-                                    fontSize = 14.sp,
-                                    lineHeight = 20.sp,
-                                    fontWeight = FontWeight.Normal
-                                )
+                                if (!isLocked) {
+                                    Text(
+                                        text = item.bioText,
+                                        fontSize = 14.sp,
+                                        lineHeight = 20.sp,
+                                        fontWeight = FontWeight.Normal
+                                    )
 
-                                Spacer(modifier = Modifier.height(10.dp))
+                                    Spacer(modifier = Modifier.height(10.dp))
 
-                                Card(
-                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)),
-                                    shape = RoundedCornerShape(8.dp)
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(8.dp),
-                                        verticalAlignment = Alignment.CenterVertically
+                                    Card(
+                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)),
+                                        shape = RoundedCornerShape(8.dp)
                                     ) {
-                                        Icon(imageVector = Icons.Default.Lightbulb, contentDescription = null, tint = RosePrimary, modifier = Modifier.size(16.dp))
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text(text = item.whyItWorks, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Row(
+                                            modifier = Modifier.padding(8.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(imageVector = Icons.Default.Lightbulb, contentDescription = null, tint = RosePrimary, modifier = Modifier.size(16.dp))
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text(text = item.whyItWorks, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(8.dp))
+
+                                    ReportResultButton(
+                                        targetType = "Bio Rewrite",
+                                        contentSnippet = item.bioText,
+                                        onReportSubmitted = onReportSubmitted
+                                    )
+                                } else {
+                                    Column(
+                                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Text(
+                                            text = "Unlock ${item.tone} style with ProfilePulse Pro",
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Button(
+                                            onClick = onOpenPaywall,
+                                            modifier = Modifier.fillMaxWidth().height(38.dp),
+                                            colors = ButtonDefaults.buttonColors(containerColor = RosePrimary),
+                                            shape = RoundedCornerShape(8.dp)
+                                        ) {
+                                            Icon(imageVector = Icons.Default.LockOpen, contentDescription = null, modifier = Modifier.size(16.dp))
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text("Unlock All Styles with Pro", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                        }
                                     }
                                 }
-
-                                Spacer(modifier = Modifier.height(8.dp))
-
-                                // Working Play-compliant report control
-                                ReportResultButton(
-                                    targetType = "Bio Rewrite",
-                                    contentSnippet = item.bioText,
-                                    onReportSubmitted = onReportSubmitted
-                                )
                             }
                         }
                     }
@@ -223,7 +266,8 @@ fun BioRewriterScreen(
                         CircularProgressIndicator(color = RosePrimary)
                     }
                 } else {
-                    hingePrompts.forEach { prompt ->
+                    hingePrompts.forEachIndexed { index, prompt ->
+                        val isLocked = !isPremium && index > 0
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -243,34 +287,73 @@ fun BioRewriterScreen(
                                         fontSize = 14.sp,
                                         color = RosePrimary
                                     )
-                                    IconButton(
-                                        onClick = {
-                                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                            val clip = ClipData.newPlainText("Hinge Prompt", "${prompt.promptQuestion}\n${prompt.promptAnswer}")
-                                            clipboard.setPrimaryClip(clip)
-                                            Toast.makeText(context, "Copied prompt answer!", Toast.LENGTH_SHORT).show()
-                                        },
-                                        modifier = Modifier.size(32.dp).testTag("copy_prompt_button")
-                                    ) {
-                                        Icon(imageVector = Icons.Default.ContentCopy, contentDescription = "Copy prompt", modifier = Modifier.size(18.dp))
+                                    if (!isLocked) {
+                                        IconButton(
+                                            onClick = {
+                                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                                val clip = ClipData.newPlainText("Hinge Prompt", "${prompt.promptQuestion}\n${prompt.promptAnswer}")
+                                                clipboard.setPrimaryClip(clip)
+                                                Toast.makeText(context, "Copied prompt answer!", Toast.LENGTH_SHORT).show()
+                                            },
+                                            modifier = Modifier.size(32.dp).testTag("copy_prompt_button")
+                                        ) {
+                                            Icon(imageVector = Icons.Default.ContentCopy, contentDescription = "Copy prompt", modifier = Modifier.size(18.dp))
+                                        }
+                                    } else {
+                                        Surface(
+                                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                                            shape = RoundedCornerShape(6.dp)
+                                        ) {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                            ) {
+                                                Icon(imageVector = Icons.Default.Lock, contentDescription = null, tint = RosePrimary, modifier = Modifier.size(12.dp))
+                                                Spacer(modifier = Modifier.width(3.dp))
+                                                Text("Pro Tier", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = RosePrimary)
+                                            }
+                                        }
                                     }
                                 }
 
                                 Spacer(modifier = Modifier.height(8.dp))
 
-                                Text(
-                                    text = prompt.promptAnswer,
-                                    fontSize = 14.sp,
-                                    lineHeight = 20.sp
-                                )
+                                if (!isLocked) {
+                                    Text(
+                                        text = prompt.promptAnswer,
+                                        fontSize = 14.sp,
+                                        lineHeight = 20.sp
+                                    )
 
-                                Spacer(modifier = Modifier.height(8.dp))
+                                    Spacer(modifier = Modifier.height(8.dp))
 
-                                ReportResultButton(
-                                    targetType = "Hinge Prompt",
-                                    contentSnippet = "${prompt.promptQuestion}: ${prompt.promptAnswer}",
-                                    onReportSubmitted = onReportSubmitted
-                                )
+                                    ReportResultButton(
+                                        targetType = "Hinge Prompt",
+                                        contentSnippet = "${prompt.promptQuestion}: ${prompt.promptAnswer}",
+                                        onReportSubmitted = onReportSubmitted
+                                    )
+                                } else {
+                                    Column(
+                                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Text(
+                                            text = "Category: ${prompt.category} (Pro Strategy)",
+                                            fontSize = 12.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        OutlinedButton(
+                                            onClick = onOpenPaywall,
+                                            modifier = Modifier.fillMaxWidth().height(36.dp),
+                                            shape = RoundedCornerShape(8.dp)
+                                        ) {
+                                            Icon(imageVector = Icons.Default.LockOpen, contentDescription = null, modifier = Modifier.size(14.dp))
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text("Unlock All Prompts with Pro", fontSize = 11.sp)
+                                        }
+                                    }
+                                }
                             }
                         }
                     }

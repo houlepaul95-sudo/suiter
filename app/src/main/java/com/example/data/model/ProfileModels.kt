@@ -75,6 +75,18 @@ enum class InterestedIn(val label: String) {
     EVERYONE("Everyone")
 }
 
+enum class SubscriptionTier(
+    val id: String,
+    val title: String,
+    val description: String,
+    val badge: String? = null
+) {
+    FREE("free", "Free Tier", "Essential score, 1 quick fix & dating app matching"),
+    WEEKLY("weekly", "Weekly Boost", "Full photo deep-dive & bio rewriter for 7 days", "FLEXIBLE"),
+    MONTHLY("monthly", "Monthly Pro", "All AI features, Copilot & rewrites with 7-day free trial", "MOST POPULAR"),
+    ANNUAL("annual", "Annual VIP", "Complete dating profile advantage + priority AI model", "BEST VALUE (SAVE 80%)")
+}
+
 data class CompatibleApp(
     val id: String,
     val name: String,

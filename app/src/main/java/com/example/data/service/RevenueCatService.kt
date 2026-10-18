@@ -8,6 +8,7 @@ import com.revenuecat.purchases.*
 import com.revenuecat.purchases.interfaces.ReceiveCustomerInfoCallback
 import com.revenuecat.purchases.interfaces.ReceiveOfferingsCallback
 import com.revenuecat.purchases.interfaces.UpdatedCustomerInfoListener
+import com.example.data.model.SubscriptionTier
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -16,17 +17,20 @@ object RevenueCatService {
     private const val TAG = "RevenueCatService"
     const val ENTITLEMENT_ID = "profilepulse_pro"
 
-    // Default placeholder/test key from user
+    // Default placeholder/test key from user or environment
     var currentApiKey: String = "test_lTrGPqtypfValnDmdedvDRYZsbS"
         private set
 
     private val _isProActive = MutableStateFlow(false)
     val isProActive: StateFlow<Boolean> = _isProActive.asStateFlow()
 
+    private val _currentTier = MutableStateFlow(SubscriptionTier.FREE)
+    val currentTier: StateFlow<SubscriptionTier> = _currentTier.asStateFlow()
+
     private val _currentOffering = MutableStateFlow<Offering?>(null)
     val currentOffering: StateFlow<Offering?> = _currentOffering.asStateFlow()
 
-    private val _statusMessage = MutableStateFlow<String?>("Sandbox Mode Active")
+    private val _statusMessage = MutableStateFlow<String?>("Initializing...")
     val statusMessage: StateFlow<String?> = _statusMessage.asStateFlow()
 
     private val _isLiveSdkActive = MutableStateFlow(false)
@@ -34,8 +38,23 @@ object RevenueCatService {
 
     private var isConfigured = false
 
+    fun getMaskedApiKey(): String {
+        val key = currentApiKey.trim()
+        return if (key.length > 8) {
+            "${key.take(6)}...${key.takeLast(4)}"
+        } else if (key.isNotBlank()) {
+            "****"
+        } else {
+            "Not Set"
+        }
+    }
+
     fun initialize(context: Context) {
-        if (isConfigured) return
+        if (isConfigured || Purchases.isConfigured) {
+            isConfigured = true
+            _isLiveSdkActive.value = true
+            return
+        }
 
         val configuredKey = try {
             val field = BuildConfig::class.java.getField("REVENUECAT_API_KEY")
@@ -45,36 +64,35 @@ object RevenueCatService {
             currentApiKey
         }
 
-        currentApiKey = configuredKey
-        configureWithKey(context, configuredKey)
+        currentApiKey = configuredKey.trim()
+        configureWithKey(context, currentApiKey)
     }
 
     fun updateApiKey(context: Context, newKey: String) {
         currentApiKey = newKey.trim()
-        isConfigured = false
-        configureWithKey(context, currentApiKey)
+        if (!Purchases.isConfigured) {
+            configureWithKey(context, currentApiKey)
+        } else {
+            _statusMessage.value = "RevenueCat SDK already configured with active session"
+        }
     }
 
     private fun configureWithKey(context: Context, key: String) {
-        // RevenueCat public API keys for Google Play on Android must begin with "goog_"
-        // If a "test_..." key or invalid format is provided, run in Safe Sandbox Mode
-        // to prevent InvalidCredentialsError and BillingNotAvailable crashes in the emulator.
-        if (!key.startsWith("goog_")) {
+        if (key.isBlank()) {
             _isLiveSdkActive.value = false
-            _statusMessage.value = "Sandbox Mode Active (Android public key must start with 'goog_')"
-            Log.i(TAG, "Key '$key' does not start with 'goog_'. Operating in local emulator Sandbox Mode.")
+            _statusMessage.value = "Sandbox Mode Active (API key empty)"
             return
         }
 
         try {
-            Purchases.logLevel = LogLevel.WARN
+            Purchases.logLevel = LogLevel.DEBUG
             Purchases.configure(
                 PurchasesConfiguration.Builder(context.applicationContext, key)
                     .build()
             )
             isConfigured = true
             _isLiveSdkActive.value = true
-            _statusMessage.value = "RevenueCat Live SDK Connected"
+            _statusMessage.value = "RevenueCat SDK Connected"
 
             Purchases.sharedInstance.updatedCustomerInfoListener = UpdatedCustomerInfoListener { customerInfo ->
                 checkEntitlement(customerInfo)
@@ -83,9 +101,9 @@ object RevenueCatService {
             fetchCustomerInfo()
             fetchOfferings()
         } catch (e: Throwable) {
-            Log.w(TAG, "RevenueCat configure suppressed: ${e.message}")
+            Log.w(TAG, "RevenueCat configure exception: ${e.message}")
             _isLiveSdkActive.value = false
-            _statusMessage.value = "Sandbox Mode (${e.message})"
+            _statusMessage.value = "Sandbox Mode (${e.message ?: "fallback"})"
         }
     }
 
@@ -115,28 +133,50 @@ object RevenueCatService {
     }
 
     private fun checkEntitlement(customerInfo: CustomerInfo) {
-        val hasPro = customerInfo.entitlements[ENTITLEMENT_ID]?.isActive == true
+        val activeEntitlement = customerInfo.entitlements[ENTITLEMENT_ID]
+            ?: customerInfo.entitlements["pro"]
+            ?: customerInfo.entitlements["premium"]
+            ?: customerInfo.entitlements["all_access"]
+            ?: customerInfo.entitlements.all.values.firstOrNull { it.isActive }
+
+        val hasPro = activeEntitlement?.isActive == true
         _isProActive.value = hasPro
-        _statusMessage.value = if (hasPro) "ProfilePulse Pro is Active" else "Free Tier (Pro inactive)"
-        Log.i(TAG, "Entitlement '$ENTITLEMENT_ID' active: $hasPro")
+
+        val tier = when {
+            !hasPro -> SubscriptionTier.FREE
+            activeEntitlement?.productIdentifier?.contains("annual", ignoreCase = true) == true ||
+            activeEntitlement?.productIdentifier?.contains("year", ignoreCase = true) == true -> SubscriptionTier.ANNUAL
+            activeEntitlement?.productIdentifier?.contains("weekly", ignoreCase = true) == true ||
+            activeEntitlement?.productIdentifier?.contains("week", ignoreCase = true) == true -> SubscriptionTier.WEEKLY
+            else -> SubscriptionTier.MONTHLY
+        }
+        _currentTier.value = tier
+        _statusMessage.value = if (hasPro) "ProfilePulse ${tier.title} is Active" else "Free Tier (Pro inactive)"
+        Log.i(TAG, "Entitlement check: active=$hasPro, tier=${tier.title}")
     }
 
-    fun fetchOfferings() {
-        if (!isConfigured || !_isLiveSdkActive.value) return
+    fun fetchOfferings(onResult: ((Offering?) -> Unit)? = null) {
+        if (!isConfigured || !_isLiveSdkActive.value) {
+            onResult?.invoke(_currentOffering.value)
+            return
+        }
 
         try {
             Purchases.sharedInstance.getOfferings(object : ReceiveOfferingsCallback {
                 override fun onReceived(offerings: Offerings) {
                     _currentOffering.value = offerings.current
+                    onResult?.invoke(offerings.current)
                 }
 
                 override fun onError(error: PurchasesError) {
                     Log.w(TAG, "Handled offerings error: ${error.message}")
                     _statusMessage.value = "Offerings status: ${error.message}"
+                    onResult?.invoke(null)
                 }
             })
         } catch (e: Throwable) {
             Log.w(TAG, "Suppressed getOfferings error: ${e.message}")
+            onResult?.invoke(null)
         }
     }
 
@@ -146,10 +186,16 @@ object RevenueCatService {
         onSuccess: (CustomerInfo) -> Unit,
         onError: (PurchasesError, Boolean) -> Unit
     ) {
+        val targetTier = when {
+            rcPackage.identifier.contains("annual", ignoreCase = true) || rcPackage.product.id.contains("annual", ignoreCase = true) || rcPackage.identifier.contains("yearly", ignoreCase = true) -> SubscriptionTier.ANNUAL
+            rcPackage.identifier.contains("weekly", ignoreCase = true) || rcPackage.product.id.contains("weekly", ignoreCase = true) -> SubscriptionTier.WEEKLY
+            else -> SubscriptionTier.MONTHLY
+        }
+
         if (!isConfigured || !_isLiveSdkActive.value) {
-            // Instant seamless Sandbox purchase for emulator testing
-            _isProActive.value = true
-            _statusMessage.value = "ProfilePulse Pro Unlocked (Sandbox Mode)"
+            // Instant seamless Sandbox purchase for emulator / test mode
+            toggleProSimulated(true, targetTier)
+            _statusMessage.value = "ProfilePulse ${targetTier.title} Unlocked (Sandbox Mode)"
             return
         }
 
@@ -167,8 +213,8 @@ object RevenueCatService {
             )
         } catch (e: Throwable) {
             Log.w(TAG, "Suppressed purchase exception: ${e.message}")
-            // Fallback to sandbox unlock so the user is never blocked
-            _isProActive.value = true
+            // Fallback to sandbox unlock so the user in emulator is never blocked
+            toggleProSimulated(true, targetTier)
         }
     }
 
@@ -178,7 +224,7 @@ object RevenueCatService {
     ) {
         if (!isConfigured || !_isLiveSdkActive.value) {
             // Sandbox restore
-            _isProActive.value = true
+            toggleProSimulated(true, SubscriptionTier.MONTHLY)
             _statusMessage.value = "ProfilePulse Pro Restored (Sandbox Mode)"
             return
         }
@@ -197,12 +243,13 @@ object RevenueCatService {
             })
         } catch (e: Throwable) {
             Log.w(TAG, "Suppressed restore exception: ${e.message}")
-            _isProActive.value = true
+            toggleProSimulated(true, SubscriptionTier.MONTHLY)
         }
     }
 
-    fun toggleProSimulated(enabled: Boolean) {
+    fun toggleProSimulated(enabled: Boolean, tier: SubscriptionTier = SubscriptionTier.MONTHLY) {
         _isProActive.value = enabled
-        _statusMessage.value = if (enabled) "ProfilePulse Pro Active (Sandbox)" else "Free Tier (Sandbox)"
+        _currentTier.value = if (enabled) tier else SubscriptionTier.FREE
+        _statusMessage.value = if (enabled) "${tier.title} Active (Sandbox)" else "Free Tier (Sandbox)"
     }
 }

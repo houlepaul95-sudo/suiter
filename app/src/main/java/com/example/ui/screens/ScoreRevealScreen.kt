@@ -354,10 +354,59 @@ fun ScoreRevealScreen(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(imageVector = Icons.Default.CheckCircle, contentDescription = null, tint = GreenSuccess)
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Premium Plan Active", fontWeight = FontWeight.Bold, color = GreenSuccess)
+                            Text("ProfilePulse Pro Active", fontWeight = FontWeight.Bold, color = GreenSuccess)
                         }
                         Spacer(modifier = Modifier.height(6.dp))
-                        Text("All algorithm insights, Hinge rewrites, and Copilot coaching are fully unlocked.", fontSize = 12.sp)
+                        Text("All 6-slot photo red-flag fixes, bio styles, and dating copilot date-closers are fully unlocked.", fontSize = 12.sp)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Full Photo Red-Flag Diagnosis (Pro feature)
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(imageVector = Icons.Default.Verified, contentDescription = null, tint = RosePrimary, modifier = Modifier.size(20.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("All-Slot Red-Flag Diagnoses (Pro Unlocked)", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        }
+                        Spacer(modifier = Modifier.height(10.dp))
+                        audit.detailedPhotoAudits.forEach { detail ->
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)),
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Column(modifier = Modifier.padding(10.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text(detail.label, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = RosePrimary)
+                                        Text("${detail.ratingScore}/100", fontWeight = FontWeight.Black, fontSize = 12.sp)
+                                    }
+                                    if (detail.flags.isNotEmpty()) {
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        detail.flags.forEach { flag ->
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Icon(imageVector = Icons.Default.WarningAmber, contentDescription = null, tint = CoralAccent, modifier = Modifier.size(14.dp))
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Text("Fix: $flag", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface)
+                                            }
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(detail.actionTip, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, lineHeight = 14.sp)
+                                }
+                            }
+                        }
                     }
                 }
             }

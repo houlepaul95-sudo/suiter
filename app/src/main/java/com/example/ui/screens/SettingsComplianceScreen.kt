@@ -104,24 +104,87 @@ fun SettingsComplianceScreen(
 
                     val statusMsg by com.example.data.service.RevenueCatService.statusMessage.collectAsState()
                     val isLiveSdk by com.example.data.service.RevenueCatService.isLiveSdkActive.collectAsState()
+                    val currentTier by com.example.data.service.RevenueCatService.currentTier.collectAsState()
 
-                    Text(
-                        text = "Entitlement: profilepulse_pro",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Text(
-                        text = "Configured Packages: \$rc_monthly, \$rc_weekly, Yearly",
-                        fontSize = 11.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = statusMsg ?: "Active",
-                        fontSize = 11.sp,
-                        color = if (isLiveSdk) GreenSuccess else RosePrimary,
-                        fontWeight = FontWeight.Medium
-                    )
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.6f), RoundedCornerShape(10.dp))
+                            .padding(12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("Active Tier:", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(currentTier.title, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = RosePrimary)
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("RevenueCat API Key:", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(com.example.data.service.RevenueCatService.getMaskedApiKey(), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("Primary Entitlement:", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(com.example.data.service.RevenueCatService.ENTITLEMENT_ID, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("SDK Status:", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                text = statusMsg ?: "Active",
+                                fontSize = 11.sp,
+                                color = if (isLiveSdk) GreenSuccess else RosePrimary,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Text("Switch Subscription Tier (Preview & Testing):", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        com.example.data.model.SubscriptionTier.values().forEach { tier ->
+                            val isSelected = currentTier == tier
+                            FilterChip(
+                                selected = isSelected,
+                                onClick = {
+                                    val isSubscribed = tier != com.example.data.model.SubscriptionTier.FREE
+                                    com.example.data.service.RevenueCatService.toggleProSimulated(isSubscribed, tier)
+                                    onTogglePremium(isSubscribed)
+                                    Toast.makeText(context, "${tier.title} activated", Toast.LENGTH_SHORT).show()
+                                },
+                                label = {
+                                    Text(
+                                        text = when (tier) {
+                                            com.example.data.model.SubscriptionTier.FREE -> "Free"
+                                            com.example.data.model.SubscriptionTier.WEEKLY -> "Weekly"
+                                            com.example.data.model.SubscriptionTier.MONTHLY -> "Monthly"
+                                            com.example.data.model.SubscriptionTier.ANNUAL -> "Annual"
+                                        },
+                                        fontSize = 11.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                    )
+                                },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
 
                     Spacer(modifier = Modifier.height(12.dp))
 
@@ -133,7 +196,9 @@ fun SettingsComplianceScreen(
                             onClick = {
                                 com.example.data.service.RevenueCatService.restorePurchases(
                                     onSuccess = { info ->
-                                        val hasPro = info.entitlements["profilepulse_pro"]?.isActive == true
+                                        val hasPro = info.entitlements["profilepulse_pro"]?.isActive == true ||
+                                                     info.entitlements["pro"]?.isActive == true ||
+                                                     info.entitlements.all.values.any { it.isActive }
                                         onTogglePremium(hasPro)
                                         Toast.makeText(context, if (hasPro) "Entitlement profilepulse_pro active!" else "No active subscriptions found.", Toast.LENGTH_SHORT).show()
                                     },
@@ -162,25 +227,6 @@ fun SettingsComplianceScreen(
                         ) {
                             Text("Manage in Play", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
-                    }
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("Sandbox Simulation Toggle", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Switch(
-                            checked = isPremium,
-                            onCheckedChange = {
-                                com.example.data.service.RevenueCatService.toggleProSimulated(it)
-                                onTogglePremium(it)
-                                Toast.makeText(context, if (it) "Pro simulation enabled" else "Free tier restored", Toast.LENGTH_SHORT).show()
-                            },
-                            modifier = Modifier.testTag("premium_sandbox_switch")
-                        )
                     }
                 }
             }

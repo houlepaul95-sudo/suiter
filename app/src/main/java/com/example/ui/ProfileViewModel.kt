@@ -46,15 +46,14 @@ class ProfileViewModel(
     val hingePrompts = repository.hingePrompts
     val copilotReplies = repository.copilotReplies
     val isPremium = repository.isPremiumUser
+    val subscriptionTier = repository.subscriptionTier
     val reports = repository.reports
 
     init {
-        // Synchronize RevenueCat entitlement 'profilepulse_pro'
+        // Synchronize RevenueCat entitlement and subscription tier
         viewModelScope.launch {
-            com.example.data.service.RevenueCatService.isProActive.collect { isActive ->
-                if (isActive) {
-                    repository.setPremiumStatus(true)
-                }
+            com.example.data.service.RevenueCatService.currentTier.collect { tier ->
+                repository.setSubscriptionTier(tier)
             }
         }
 
@@ -154,7 +153,14 @@ class ProfileViewModel(
     }
 
     fun setPremium(isPrem: Boolean) {
-        repository.setPremiumStatus(isPrem)
+        val tier = if (isPrem) SubscriptionTier.MONTHLY else SubscriptionTier.FREE
+        com.example.data.service.RevenueCatService.toggleProSimulated(isPrem, tier)
+        repository.setSubscriptionTier(tier)
+    }
+
+    fun setSubscriptionTier(tier: SubscriptionTier) {
+        com.example.data.service.RevenueCatService.toggleProSimulated(tier != SubscriptionTier.FREE, tier)
+        repository.setSubscriptionTier(tier)
     }
 
     fun deletePhotos() {
