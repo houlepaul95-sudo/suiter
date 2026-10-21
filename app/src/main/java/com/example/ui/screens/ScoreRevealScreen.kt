@@ -265,8 +265,8 @@ fun ScoreRevealScreen(
                         ) {
                             Column {
                                 Box(modifier = Modifier.height(150.dp).fillMaxWidth()) {
-                                    AsyncImage(
-                                        model = photo.uriString,
+                                    com.example.ui.components.RetouchedPortraitImage(
+                                        photo = photo,
                                         contentDescription = "Photo #$index",
                                         modifier = Modifier.fillMaxSize(),
                                         contentScale = ContentScale.Crop
@@ -285,6 +285,23 @@ fun ScoreRevealScreen(
                                             fontSize = 10.sp,
                                             fontWeight = FontWeight.Bold
                                         )
+                                    }
+                                    if (photo.edits.isEdited) {
+                                        Box(
+                                            modifier = Modifier
+                                                .align(Alignment.BottomStart)
+                                                .padding(6.dp)
+                                                .clip(RoundedCornerShape(6.dp))
+                                                .background(GreenSuccess.copy(alpha = 0.9f))
+                                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                        ) {
+                                            Text(
+                                                text = "✨ Retouched",
+                                                color = Color.White,
+                                                fontSize = 9.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
                                     }
                                 }
                                 Column(modifier = Modifier.padding(8.dp)) {

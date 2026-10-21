@@ -170,6 +170,9 @@ fun ProfileCreationModal(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
+                                if (biography.datingVibe.isNotBlank()) {
+                                    AttributeChip(icon = Icons.Default.AutoAwesome, text = biography.datingVibe)
+                                }
                                 if (biography.favoriteFood.isNotBlank()) {
                                     AttributeChip(icon = Icons.Default.Restaurant, text = biography.favoriteFood)
                                 }

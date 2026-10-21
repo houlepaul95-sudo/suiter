@@ -127,6 +127,15 @@ fun PhotoUploadScreen(
         }
     }
 
+    // Local Document / File Picker Launcher for selecting a single local dating profile photo
+    val localFilePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            onPhotosSelected(listOf(uri.toString()))
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -243,12 +252,49 @@ fun PhotoUploadScreen(
 
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "Add 4 to 6 photos for optimal lead-photo selection, ordering, and red-flag analysis.",
+                text = "Upload a dating profile photo from your device or add up to 6 photos for full analysis & pre-submit retouching.",
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Dedicated Primary Local File Picker Button for Uploading a Dating Profile Photo for Analysis
+            Button(
+                onClick = {
+                    try {
+                        photoPickerLauncher.launch(
+                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                        )
+                    } catch (_: Exception) {
+                        localFilePickerLauncher.launch("image/*")
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp)
+                    .testTag("upload_local_photo_button"),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = RosePrimary,
+                    contentColor = Color.White
+                ),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.FileUpload,
+                    contentDescription = "Upload Local Photo",
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Upload Local Photo for Analysis",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.ExtraBold
+                )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
 
             // Photo Grid (2x3)
             LazyVerticalGrid(
@@ -269,8 +315,8 @@ fun PhotoUploadScreen(
                                 .clip(RoundedCornerShape(12.dp))
                                 .border(1.5.dp, if (index == 0) RosePrimary else Color.Transparent, RoundedCornerShape(12.dp))
                         ) {
-                            AsyncImage(
-                                model = photo.uriString,
+                            com.example.ui.components.RetouchedPortraitImage(
+                                photo = photo,
                                 contentDescription = "Uploaded photo ${index + 1}",
                                 modifier = Modifier.fillMaxSize(),
                                 contentScale = ContentScale.Crop
@@ -287,6 +333,20 @@ fun PhotoUploadScreen(
                                         .padding(horizontal = 5.dp, vertical = 2.dp)
                                 ) {
                                     Text("Current #1", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+
+                            // Retouched badge
+                            if (photo.edits.isEdited) {
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.BottomStart)
+                                        .padding(4.dp)
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(GreenSuccess.copy(alpha = 0.9f))
+                                        .padding(horizontal = 5.dp, vertical = 2.dp)
+                                ) {
+                                    Text("✨ Edited", color = Color.White, fontSize = 8.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
 
@@ -315,7 +375,15 @@ fun PhotoUploadScreen(
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                                 .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
-                                .clickable { showSourceDialog = true },
+                                .clickable {
+                                    try {
+                                        photoPickerLauncher.launch(
+                                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                        )
+                                    } catch (_: Exception) {
+                                        showSourceDialog = true
+                                    }
+                                },
                             contentAlignment = Alignment.Center
                         ) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -335,29 +403,41 @@ fun PhotoUploadScreen(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Action Row: Add Photos Dialog, Browse Test Gallery, Clear
+            // Secondary Action Row: Local File Browser, Source Options Dialog, Test Gallery
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Button(
+                FilledTonalButton(
+                    onClick = { localFilePickerLauncher.launch("image/*") },
+                    modifier = Modifier
+                        .weight(1.1f)
+                        .height(44.dp)
+                        .testTag("browse_local_file_button"),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Icon(imageVector = Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Local Files", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
+
+                OutlinedButton(
                     onClick = { showSourceDialog = true },
                     modifier = Modifier
-                        .weight(1.2f)
+                        .weight(1f)
                         .height(44.dp)
                         .testTag("add_photos_main_button"),
-                    shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = RosePrimary)
+                    shape = RoundedCornerShape(10.dp)
                 ) {
-                    Icon(imageVector = Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Add Photos", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Icon(imageVector = Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Sources", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
 
                 OutlinedButton(
                     onClick = { showLibraryDialog = true },
                     modifier = Modifier
-                        .weight(1f)
+                        .weight(1.1f)
                         .height(44.dp)
                         .testTag("open_test_gallery_button"),
                     shape = RoundedCornerShape(10.dp)

@@ -86,6 +86,18 @@ class ProfileRepository(
     private val _reports = MutableStateFlow<List<ReportLog>>(emptyList())
     val reports: StateFlow<List<ReportLog>> = _reports.asStateFlow()
 
+    // App Appearance Theme Mode (Default: Light & Inviting)
+    private val _themeMode = MutableStateFlow(AppThemeMode.LIGHT)
+    val themeMode: StateFlow<AppThemeMode> = _themeMode.asStateFlow()
+
+    fun setThemeMode(mode: AppThemeMode, context: Context? = appContext) {
+        _themeMode.value = mode
+        context?.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            ?.edit()
+            ?.putString("app_theme_mode", mode.name)
+            ?.apply()
+    }
+
     fun initContext(context: Context) {
         this.appContext = context.applicationContext
         loadFromPreferences(context)
@@ -99,6 +111,13 @@ class ProfileRepository(
             _hasSeenRateMe.value = seenRateMe
             _hasCompletedBiography.value = completedBio
 
+            val savedTheme = prefs.getString("app_theme_mode", AppThemeMode.LIGHT.name)
+            _themeMode.value = try {
+                AppThemeMode.valueOf(savedTheme ?: AppThemeMode.LIGHT.name)
+            } catch (_: Exception) {
+                AppThemeMode.LIGHT
+            }
+
             val birthYear = if (prefs.contains("birth_year")) prefs.getInt("birth_year", 2000) else null
             val age = birthYear?.let { 2026 - it }
             val bio = UserBiography(
@@ -111,6 +130,8 @@ class ProfileRepository(
                 socialFun = prefs.getString("social_fun", "") ?: "",
                 favoriteFood = prefs.getString("favorite_food", "") ?: "",
                 datingGoals = prefs.getString("dating_goals", "") ?: "",
+                datingVibe = prefs.getString("dating_vibe", "Flirtatious, and funny") ?: "Flirtatious, and funny",
+                tone = prefs.getString("dating_tone", "Flirtatious, and funny") ?: "Flirtatious, and funny",
                 isCompleted = completedBio,
                 savedToFirebase = prefs.getBoolean("saved_to_firebase", false),
                 lastUpdated = prefs.getLong("last_updated", System.currentTimeMillis())
@@ -170,6 +191,8 @@ class ProfileRepository(
                     .putString("social_fun", finalizedBio.socialFun)
                     .putString("favorite_food", finalizedBio.favoriteFood)
                     .putString("dating_goals", finalizedBio.datingGoals)
+                    .putString("dating_vibe", finalizedBio.datingVibe)
+                    .putString("dating_tone", finalizedBio.tone)
                     .putLong("last_updated", finalizedBio.lastUpdated)
                     .apply()
             } catch (e: Exception) {
@@ -257,6 +280,18 @@ class ProfileRepository(
         _userPhotos.value = _userPhotos.value.filter { it.id != id }
     }
 
+    fun updatePhotoEdits(photoId: String, edits: PhotoEdits) {
+        _userPhotos.value = _userPhotos.value.map { photo ->
+            if (photo.id == photoId) photo.copy(edits = edits) else photo
+        }
+    }
+
+    fun applyEditsToAllPhotos(edits: PhotoEdits) {
+        _userPhotos.value = _userPhotos.value.map { photo ->
+            photo.copy(edits = edits)
+        }
+    }
+
     fun reorderPhotos(fromIndex: Int, toIndex: Int) {
         val list = _userPhotos.value.toMutableList()
         if (fromIndex in list.indices && toIndex in list.indices) {
@@ -269,12 +304,12 @@ class ProfileRepository(
     suspend fun runProfileAudit() {
         _isAnalyzing.value = true
         _analysisStep.value = "Scanning photo clarity, lighting, and facial composition..."
-        kotlinx.coroutines.delay(800)
+        kotlinx.coroutines.delay(700)
         _analysisStep.value = "Evaluating lead photo potential and facial expression signals..."
-        kotlinx.coroutines.delay(800)
+        kotlinx.coroutines.delay(700)
         _analysisStep.value = "Analyzing photo sequence diversity and detecting clutter flags..."
-        kotlinx.coroutines.delay(800)
-        _analysisStep.value = "Optimizing dating algorithm hooks and scoring first impression..."
+        kotlinx.coroutines.delay(700)
+        _analysisStep.value = "Scan complete! Edit your pictures below or submit directly to your profile."
 
         val result = geminiService.analyzePhotosAndBio(
             photos = _userPhotos.value,
@@ -285,6 +320,16 @@ class ProfileRepository(
 
         _auditResult.value = result
         _isAnalyzing.value = false
+    }
+
+    suspend fun refreshAuditForEditedPhotos() {
+        val result = geminiService.analyzePhotosAndBio(
+            photos = _userPhotos.value,
+            currentBio = _userBio.value,
+            platform = _selectedPlatform.value,
+            biography = _userBiography.value
+        )
+        _auditResult.value = result
     }
 
     suspend fun generateBioRewrites(bioText: String = _userBio.value) {

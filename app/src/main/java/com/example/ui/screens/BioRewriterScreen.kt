@@ -116,9 +116,9 @@ fun BioRewriterScreen(
                         Spacer(modifier = Modifier.width(8.dp))
                         Column {
                             val bioDetails = listOfNotNull(
+                                biography.datingVibe.takeIf { it.isNotBlank() },
                                 biography.jobTitle.takeIf { it.isNotBlank() },
-                                biography.favoriteFood.takeIf { it.isNotBlank() },
-                                biography.hobbies.takeIf { it.isNotBlank() }
+                                biography.favoriteFood.takeIf { it.isNotBlank() }
                             ).joinToString(" • ")
 
                             Text(
@@ -128,7 +128,7 @@ fun BioRewriterScreen(
                                 maxLines = 1
                             )
                             Text(
-                                text = "Tuned for ${platform.displayName} • Tap to edit persona",
+                                text = "Tuned for ${platform.displayName} • Vibe: ${biography.datingVibe} • Tap to edit",
                                 fontSize = 10.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )

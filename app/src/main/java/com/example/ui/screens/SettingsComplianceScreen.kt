@@ -22,6 +22,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.ReportLog
+import com.example.data.model.AppThemeMode
 import com.example.ui.theme.GreenSuccess
 import com.example.ui.theme.RedWarning
 import com.example.ui.theme.RosePrimary
@@ -31,6 +32,8 @@ import com.example.ui.theme.RosePrimary
 fun SettingsComplianceScreen(
     reports: List<ReportLog>,
     isPremium: Boolean,
+    themeMode: AppThemeMode = AppThemeMode.LIGHT,
+    onThemeModeChanged: (AppThemeMode) -> Unit = {},
     onTogglePremium: (Boolean) -> Unit,
     onDeletePhotos: () -> Unit,
     onDeleteAccountAndData: () -> Unit,
@@ -62,6 +65,128 @@ fun SettingsComplianceScreen(
                 .verticalScroll(rememberScrollState())
         ) {
             Spacer(modifier = Modifier.height(8.dp))
+
+            // App Appearance & Background Card
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Palette,
+                            contentDescription = null,
+                            tint = RosePrimary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("App Appearance & Background", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Lighten up the ambiance with warm and inviting tones:",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // Warm Light
+                        val isLight = themeMode == AppThemeMode.LIGHT
+                        Surface(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable { onThemeModeChanged(AppThemeMode.LIGHT) },
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (isLight) RosePrimary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surface,
+                            border = androidx.compose.foundation.BorderStroke(
+                                1.5.dp,
+                                if (isLight) RosePrimary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                            )
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(vertical = 10.dp, horizontal = 8.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text("☀️", fontSize = 18.sp)
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    "Warm Light",
+                                    fontSize = 11.sp,
+                                    fontWeight = if (isLight) FontWeight.Bold else FontWeight.Medium,
+                                    color = if (isLight) RosePrimary else MaterialTheme.colorScheme.onSurface
+                                )
+                                Text("Inviting Glow", fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+
+                        // Velvet Dark
+                        val isDark = themeMode == AppThemeMode.DARK
+                        Surface(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable { onThemeModeChanged(AppThemeMode.DARK) },
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (isDark) RosePrimary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surface,
+                            border = androidx.compose.foundation.BorderStroke(
+                                1.5.dp,
+                                if (isDark) RosePrimary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                            )
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(vertical = 10.dp, horizontal = 8.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text("🌙", fontSize = 18.sp)
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    "Velvet Dark",
+                                    fontSize = 11.sp,
+                                    fontWeight = if (isDark) FontWeight.Bold else FontWeight.Medium,
+                                    color = if (isDark) RosePrimary else MaterialTheme.colorScheme.onSurface
+                                )
+                                Text("Soft Plum", fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+
+                        // System Default
+                        val isSystem = themeMode == AppThemeMode.SYSTEM
+                        Surface(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable { onThemeModeChanged(AppThemeMode.SYSTEM) },
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (isSystem) RosePrimary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surface,
+                            border = androidx.compose.foundation.BorderStroke(
+                                1.5.dp,
+                                if (isSystem) RosePrimary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                            )
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(vertical = 10.dp, horizontal = 8.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text("📱", fontSize = 18.sp)
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    "System",
+                                    fontSize = 11.sp,
+                                    fontWeight = if (isSystem) FontWeight.Bold else FontWeight.Medium,
+                                    color = if (isSystem) RosePrimary else MaterialTheme.colorScheme.onSurface
+                                )
+                                Text("Auto", fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
 
             // RevenueCat Customer Center & Subscription Hub
             Card(
@@ -165,14 +290,19 @@ fun SettingsComplianceScreen(
                                 selected = isSelected,
                                 onClick = {
                                     val isSubscribed = tier != com.example.data.model.SubscriptionTier.FREE
-                                    com.example.data.service.RevenueCatService.toggleProSimulated(isSubscribed, tier)
+                                    if (tier == com.example.data.model.SubscriptionTier.PROFILE_BOOST) {
+                                        com.example.data.service.RevenueCatService.activateProfileBoost30Days(context)
+                                    } else {
+                                        com.example.data.service.RevenueCatService.toggleProSimulated(isSubscribed, tier)
+                                    }
                                     onTogglePremium(isSubscribed)
                                     Toast.makeText(context, "${tier.title} activated", Toast.LENGTH_SHORT).show()
                                 },
                                 label = {
                                     Text(
                                         text = when (tier) {
-                                            com.example.data.model.SubscriptionTier.FREE -> "Free"
+                                            com.example.data.model.SubscriptionTier.FREE -> "Basic"
+                                            com.example.data.model.SubscriptionTier.PROFILE_BOOST -> "Boost"
                                             com.example.data.model.SubscriptionTier.WEEKLY -> "Weekly"
                                             com.example.data.model.SubscriptionTier.MONTHLY -> "Monthly"
                                             com.example.data.model.SubscriptionTier.ANNUAL -> "Annual"

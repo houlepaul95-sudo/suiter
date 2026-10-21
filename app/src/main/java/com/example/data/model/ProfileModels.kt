@@ -1,10 +1,36 @@
 package com.example.data.model
 
+import kotlin.math.abs
+
+data class PhotoEdits(
+    val skinSoftening: Float = 0f,     // 0f..1f (Soften skin tone & smooth blemishes)
+    val jawWidth: Float = 0f,          // -0.5f..1f (Slim or widen jawline structure)
+    val skinWarmth: Float = 0f,        // 0f..1f (Golden hour skin warmth)
+    val eyeClarity: Float = 0f,        // 0f..1f (Eye brightness & contrast pop)
+    val jawContour: Float = 0f         // 0f..1f (Cheekbone & jawline shadow sculpting)
+) {
+    val isEdited: Boolean
+        get() = skinSoftening > 0.01f || abs(jawWidth) > 0.01f ||
+                skinWarmth > 0.01f || eyeClarity > 0.01f || jawContour > 0.01f
+
+    fun summaryBadges(): List<String> {
+        val badges = mutableListOf<String>()
+        if (skinSoftening > 0.01f) badges.add("Skin Softened ${(skinSoftening * 100).toInt()}%")
+        if (jawWidth > 0.01f) badges.add("Jaw Widened +${(jawWidth * 100).toInt()}%")
+        else if (jawWidth < -0.01f) badges.add("Jaw Slimmed ${(jawWidth * 100).toInt()}%")
+        if (skinWarmth > 0.01f) badges.add("Warm Glow +${(skinWarmth * 100).toInt()}%")
+        if (eyeClarity > 0.01f) badges.add("Eye Clarity +${(eyeClarity * 100).toInt()}%")
+        if (jawContour > 0.01f) badges.add("Contour +${(jawContour * 100).toInt()}%")
+        return badges
+    }
+}
+
 data class UserPhoto(
     val id: String,
     val uriString: String,
     val isLeadCandidate: Boolean = false,
-    val detectedAspect: String = "Portrait"
+    val detectedAspect: String = "Portrait",
+    val edits: PhotoEdits = PhotoEdits()
 )
 
 data class PhotoAudit(
@@ -18,6 +44,26 @@ data class PhotoAudit(
     val actionTip: String
 )
 
+// Persona and Dating Vibe constants
+const val VIBE_FLIRTATIOUS = "Flirtatious"
+const val VIBE_FUNNY = "Funny"
+const val VIBE_FLIRTATIOUS_AND_FUNNY = "Flirtatious, and funny"
+
+enum class DatingVibe(val label: String) {
+    FLIRTATIOUS_AND_FUNNY("Flirtatious, and funny"),
+    FLIRTATIOUS("Flirtatious"),
+    FUNNY("Funny"),
+    WITTY_AND_PLAYFUL("Witty & Playful"),
+    CONFIDENT_AND_DIRECT("Confident & Direct"),
+    CHEEK_AND_CHARMING("Cheeky & Charming")
+}
+
+enum class AppThemeMode(val title: String) {
+    LIGHT("Warm Light (Inviting)"),
+    DARK("Velvet Dark (Inviting)"),
+    SYSTEM("System Default")
+}
+
 data class UserBiography(
     val birthYear: Int? = null,
     val age: Int? = null,
@@ -28,6 +74,8 @@ data class UserBiography(
     val socialFun: String = "",
     val favoriteFood: String = "",
     val datingGoals: String = "",
+    val datingVibe: String = VIBE_FLIRTATIOUS_AND_FUNNY,
+    val tone: String = VIBE_FLIRTATIOUS_AND_FUNNY,
     val isCompleted: Boolean = false,
     val savedToFirebase: Boolean = false,
     val lastUpdated: Long = System.currentTimeMillis()
@@ -106,9 +154,12 @@ enum class SubscriptionTier(
     val id: String,
     val title: String,
     val description: String,
-    val badge: String? = null
+    val badge: String? = null,
+    val isOneTime: Boolean = false,
+    val durationDays: Int? = null
 ) {
-    FREE("free", "Free Tier", "Essential score, 1 quick fix & dating app matching"),
+    FREE("free", "Basic Plan", "Essential score, 1 quick fix & dating app matching"),
+    PROFILE_BOOST("suitor_profile_boost_30d", "Suitor Profile Boost", "30 days of full AI photo feedback, bio rewrites & action plan", "ONE-TIME • 30 DAYS", isOneTime = true, durationDays = 30),
     WEEKLY("weekly", "Weekly Boost", "Full photo deep-dive & bio rewriter for 7 days", "FLEXIBLE"),
     MONTHLY("monthly", "Monthly Pro", "All AI features, Copilot & rewrites with 7-day free trial", "MOST POPULAR"),
     ANNUAL("annual", "Annual VIP", "Complete dating profile advantage + priority AI model", "BEST VALUE (SAVE 80%)")

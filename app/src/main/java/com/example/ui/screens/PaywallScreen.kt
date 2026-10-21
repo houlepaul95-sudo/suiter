@@ -30,6 +30,7 @@ import com.example.ui.theme.GreenSuccess
 import com.example.ui.theme.RosePrimary
 
 enum class PlanSelection {
+    PROFILE_BOOST_30D,
     ANNUAL,
     MONTHLY,
     WEEKLY
@@ -47,7 +48,7 @@ fun PaywallScreen(
 ) {
     val context = LocalContext.current
     val activity = context as? Activity
-    var selectedPlan by remember { mutableStateOf(PlanSelection.ANNUAL) }
+    var selectedPlan by remember { mutableStateOf(PlanSelection.PROFILE_BOOST_30D) }
     var isProcessing by remember { mutableStateOf(false) }
     var viewingPolicy by remember { mutableStateOf<String?>(null) }
 
@@ -56,8 +57,17 @@ fun PaywallScreen(
 
     val isLiveSdk by RevenueCatService.isLiveSdkActive.collectAsState()
     val currentTier by RevenueCatService.currentTier.collectAsState()
+    val boostExpiresAt by RevenueCatService.boostExpiresAt.collectAsState()
 
     // Match RevenueCat packages
+    val rcBoostPackage = remember(currentOffering) {
+        currentOffering?.availablePackages?.find {
+            it.identifier.contains("boost", ignoreCase = true) ||
+            it.identifier.contains("30d", ignoreCase = true) ||
+            it.product.id.contains("boost", ignoreCase = true) ||
+            it.product.id == RevenueCatService.PRODUCT_BOOST_ID
+        }
+    }
     val rcWeeklyPackage = remember(currentOffering) {
         currentOffering?.weekly ?: currentOffering?.availablePackages?.find {
             it.identifier.contains("weekly", ignoreCase = true) || it.product.id.contains("weekly", ignoreCase = true)
@@ -128,10 +138,19 @@ fun PaywallScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "SUITOR · PREMIUM PROFILE OPTIMIZER",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Black,
+                color = RosePrimary,
+                letterSpacing = 1.sp,
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
 
             Text(
-                text = "Unlock Your Complete Profile Advantage",
+                text = "Turn Your Dating Profile Into Your Advantage",
                 fontSize = 22.sp,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center
@@ -140,7 +159,7 @@ fun PaywallScreen(
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "Choose your subscription tier to access full photo red-flag diagnoses, optimal lead photo sequencing, unlimited bio rewrites, and the conversation copilot.",
+                text = "AI-powered photo feedback, rewritten bios tailored to your personality, conversation prompts, and a prioritized action plan.",
                 fontSize = 13.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
@@ -149,21 +168,59 @@ fun PaywallScreen(
 
             Spacer(modifier = Modifier.height(20.dp))
 
+            // Active Boost Banner if applicable
+            if (currentTier == com.example.data.model.SubscriptionTier.PROFILE_BOOST) {
+                val daysLeft = RevenueCatService.getDaysRemainingInBoost()
+                Surface(
+                    color = CoralAccent.copy(alpha = 0.15f),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.Timer, contentDescription = null, tint = CoralAccent, modifier = Modifier.size(20.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Profile Boost Active: $daysLeft days remaining (locks to basic plan when ended)",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = CoralAccent
+                        )
+                    }
+                }
+            }
+
             // Value bullets
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                BenefitItem("AI Photo Crop & Lighting Analysis for all 6 slots")
-                BenefitItem("Targeted Red-Flag Flags (Detect sunglasses, hats, awkward crops)")
-                BenefitItem("Full Bio & Hinge Prompts Generator across 4 distinct tones")
-                BenefitItem("Dating Copilot for conversation rescue and date closing")
-                BenefitItem("Priority Gemini AI model processing for faster recommendations")
+                BenefitItem("AI-powered photo feedback")
+                BenefitItem("A rewritten bio tailored to your personality")
+                BenefitItem("Better prompts that spark conversations")
+                BenefitItem("A personalized, prioritized improvement plan")
+                BenefitItem("Access to premium optimization tools for 30 days")
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
-            // PLAN 1: Annual Plan (Anchored Honestly: $59.99/year, about $1.15/week)
+            // OPTION 1: SUITOR PROFILE BOOST (Featured One-Time Option: C$10.99 CAD, 30 days access)
+            val boostPriceText = rcBoostPackage?.product?.price?.formatted ?: "C$10.99 CAD"
+            PlanSelectionCard(
+                isSelected = selectedPlan == PlanSelection.PROFILE_BOOST_30D,
+                title = "Suitor Profile Boost",
+                badge = "ONE-TIME • 30 DAYS",
+                priceHeadline = boostPriceText,
+                periodSubline = "One-time purchase · 30 days of access · No automatic renewal",
+                trialBanner = "Includes AI photo feedback, rewritten bio, improved prompts & action plan. After 30 days locked to basic plan.",
+                onClick = { selectedPlan = PlanSelection.PROFILE_BOOST_30D }
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // OPTION 2: Annual Plan (Anchored Honestly: $59.99/year, about $1.15/week)
             val annualPriceText = rcAnnualPackage?.product?.price?.formatted ?: "$59.99 / year"
             PlanSelectionCard(
                 isSelected = selectedPlan == PlanSelection.ANNUAL,
@@ -176,7 +233,7 @@ fun PaywallScreen(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // PLAN 2: Monthly Plan ($rc_monthly with 7-day free trial)
+            // OPTION 3: Monthly Plan ($rc_monthly with 7-day free trial)
             val monthlyPriceText = rcMonthlyPackage?.product?.price?.formatted ?: "$14.99 / month"
             PlanSelectionCard(
                 isSelected = selectedPlan == PlanSelection.MONTHLY,
@@ -190,7 +247,7 @@ fun PaywallScreen(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // PLAN 3: Weekly Plan ($rc_weekly)
+            // OPTION 4: Weekly Plan ($rc_weekly)
             val weeklyPriceText = rcWeeklyPackage?.product?.price?.formatted ?: "$6.99 / week"
             PlanSelectionCard(
                 isSelected = selectedPlan == PlanSelection.WEEKLY,
@@ -208,14 +265,20 @@ fun PaywallScreen(
                 onClick = {
                     isProcessing = true
                     val targetPackage = when (selectedPlan) {
+                        PlanSelection.PROFILE_BOOST_30D -> rcBoostPackage
                         PlanSelection.WEEKLY -> rcWeeklyPackage
                         PlanSelection.MONTHLY -> rcMonthlyPackage
                         PlanSelection.ANNUAL -> rcAnnualPackage
                     }
                     val targetTier = when (selectedPlan) {
+                        PlanSelection.PROFILE_BOOST_30D -> com.example.data.model.SubscriptionTier.PROFILE_BOOST
                         PlanSelection.ANNUAL -> com.example.data.model.SubscriptionTier.ANNUAL
                         PlanSelection.MONTHLY -> com.example.data.model.SubscriptionTier.MONTHLY
                         PlanSelection.WEEKLY -> com.example.data.model.SubscriptionTier.WEEKLY
+                    }
+
+                    if (selectedPlan == PlanSelection.PROFILE_BOOST_30D) {
+                        RevenueCatService.activateProfileBoost30Days(context)
                     }
 
                     if (activity != null && targetPackage != null) {
@@ -225,14 +288,23 @@ fun PaywallScreen(
                             onSuccess = { customerInfo ->
                                 isProcessing = false
                                 onPurchaseCompleted()
-                                Toast.makeText(context, "Welcome to Suiter ${targetTier.title}! Entitlement activated.", Toast.LENGTH_LONG).show()
+                                val message = if (selectedPlan == PlanSelection.PROFILE_BOOST_30D) {
+                                    "Welcome to Suitor Profile Boost! 30 days of full access activated."
+                                } else {
+                                    "Welcome to Suiter ${targetTier.title}! Entitlement activated."
+                                }
+                                Toast.makeText(context, message, Toast.LENGTH_LONG).show()
                                 onClose()
                             },
                             onError = { error, userCancelled ->
                                 isProcessing = false
                                 if (!userCancelled) {
                                     // If testing in emulator sandbox or no Google Play account attached, activate sandbox fallback
-                                    RevenueCatService.toggleProSimulated(true, targetTier)
+                                    if (selectedPlan == PlanSelection.PROFILE_BOOST_30D) {
+                                        RevenueCatService.activateProfileBoost30Days(context)
+                                    } else {
+                                        RevenueCatService.toggleProSimulated(true, targetTier)
+                                    }
                                     Toast.makeText(context, "RevenueCat: ${error.message}. ${targetTier.title} unlocked.", Toast.LENGTH_SHORT).show()
                                     onPurchaseCompleted()
                                     onClose()
@@ -241,9 +313,14 @@ fun PaywallScreen(
                         )
                     } else {
                         // In virtual emulator / offline mode without configured Google Play Billing credentials
-                        RevenueCatService.toggleProSimulated(true, targetTier)
+                        if (selectedPlan == PlanSelection.PROFILE_BOOST_30D) {
+                            RevenueCatService.activateProfileBoost30Days(context)
+                            Toast.makeText(context, "Suitor Profile Boost Activated! 30 days of full AI access.", Toast.LENGTH_LONG).show()
+                        } else {
+                            RevenueCatService.toggleProSimulated(true, targetTier)
+                            Toast.makeText(context, "Subscribed! (Suiter ${targetTier.title} entitlement unlocked)", Toast.LENGTH_LONG).show()
+                        }
                         onPurchaseCompleted()
-                        Toast.makeText(context, "Subscribed! (Suiter ${targetTier.title} entitlement unlocked)", Toast.LENGTH_LONG).show()
                         isProcessing = false
                         onClose()
                     }
@@ -258,8 +335,14 @@ fun PaywallScreen(
                 if (isProcessing) {
                     CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
                 } else {
+                    val ctaText = when (selectedPlan) {
+                        PlanSelection.PROFILE_BOOST_30D -> "Get 30-Day Boost • $boostPriceText"
+                        PlanSelection.MONTHLY -> "Start 7-Day Free Trial"
+                        PlanSelection.ANNUAL -> "Subscribe Annual VIP ($annualPriceText)"
+                        PlanSelection.WEEKLY -> "Subscribe Weekly ($weeklyPriceText)"
+                    }
                     Text(
-                        text = if (selectedPlan == PlanSelection.MONTHLY) "Start 7-Day Free Trial" else "Subscribe with Google Play",
+                        text = ctaText,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold
                     )

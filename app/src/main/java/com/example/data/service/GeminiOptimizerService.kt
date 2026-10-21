@@ -31,13 +31,18 @@ class GeminiOptimizerService {
         val userJob = biography?.jobTitle?.takeIf { it.isNotBlank() } ?: "professional"
         val userFood = biography?.favoriteFood?.takeIf { it.isNotBlank() } ?: "good food"
 
-        // Realistic, honest scoring based on strict dating standards (NO FALSE PROPS)
-        val photoScore = when {
+        val editedCount = photos.count { it.edits.isEdited }
+        val retouchBonus = if (editedCount > 0) (editedCount * 4).coerceAtMost(14) else 0
+
+        // Realistic, honest scoring based on strict dating standards (with studio retouch enhancement)
+        val basePhotoScore = when {
             photoCount >= 6 -> 78
             photoCount >= 4 -> 71
             photoCount >= 2 -> 58
             else -> 42
         }
+        val photoScore = (basePhotoScore + retouchBonus).coerceAtMost(96)
+
         val diversityScore = when {
             photoCount >= 5 -> 79
             photoCount >= 4 -> 68
@@ -50,26 +55,33 @@ class GeminiOptimizerService {
             bioLength > 0 -> 59
             else -> 35
         }
-        val firstImpressionScore = when {
+        val baseFirstImpression = when {
             photoCount >= 4 && bioLength > 30 -> 74
             photoCount >= 3 -> 62
             else -> 48
         }
+        val firstImpressionScore = (baseFirstImpression + retouchBonus).coerceAtMost(95)
 
         val overall = ((photoScore * 0.35) + (diversityScore * 0.25) + (bioHookScore * 0.25) + (firstImpressionScore * 0.15)).toInt()
 
         // Seasoned coach honest breakdown of each photo (calls out real mistakes like bathroom selfies, poor lighting, shades)
         val photoAudits = photos.mapIndexed { index, photo ->
+            val editSummary = if (photo.edits.isEdited) {
+                "Pre-Submit Retouch Applied: ${photo.edits.summaryBadges().joinToString(" • ")}"
+            } else null
+            val itemBonus = if (photo.edits.isEdited) 9 else 0
+
             when (index) {
                 0 -> {
-                    val score = if (photoCount >= 4) 79 else 64
+                    val score = ((if (photoCount >= 4) 79 else 64) + itemBonus).coerceAtMost(96)
                     PhotoAudit(
                         photoIndex = index,
                         label = "Photo #1 • Lead Hook & First Impression",
                         isLeadPick = true,
                         ratingScore = score,
                         honestCritique = "Coach Brutal Truth: Your #1 photo makes or breaks your entire profile in 0.4 seconds. If this is a car selfie, a bathroom mirror shot, or taken in dim yellow lighting, you are losing up to 65% of potential matches before they even see photo #2. No sunglasses, no hats, no fish.",
-                        strengths = listOf(
+                        strengths = listOfNotNull(
+                            editSummary,
                             "Positions you front-and-center for quick swipe decisions",
                             "Direct forward gaze establishes initial visual contact"
                         ),
@@ -214,62 +226,76 @@ class GeminiOptimizerService {
         val social = biography?.socialFun?.takeIf { it.isNotBlank() } ?: "speakeasy drinks & live music"
         val food = biography?.favoriteFood?.takeIf { it.isNotBlank() } ?: topics.getOrNull(1) ?: "handcrafted tacos"
         val goals = biography?.datingGoals?.takeIf { it.isNotBlank() } ?: "great banter and real chemistry"
+        val vibe = biography?.datingVibe?.takeIf { it.isNotBlank() } ?: "Flirtatious, and funny"
         val heritage = biography?.raceOrHeritage?.takeIf { it.isNotBlank() }?.let { "Proud $it. " } ?: ""
 
         val seed = System.currentTimeMillis() % 3
 
-        val bio1Text = when (seed.toInt()) {
-            0 -> "${heritage}Working in $job, but my real specialty is hunting down the city's best $food and curating playlist vibes for $hobbies.\n\nPros: knows the low-key speakeasies, quick with witty banter.\nCons: will pause the movie to give unsolicited trivia on the soundtrack."
-            1 -> "${heritage}Debating whether iced coffee belongs in winter and taking $job way too seriously by day. Weekends: $social, $hobbies, and testing every $food spot in town.\n\nChallenge me to a game of trivia or arcade basketball—loser buys the first round."
-            else -> "${heritage}By day: $job. By night: culinary enthusiast currently on a quest for unbeatable $food.\n\nLooking for someone who loves $social, laughs at ridiculous memes, and won't judge when I order dessert for the table."
+        val bioFlirtatiousAndFunny = when (seed.toInt()) {
+            0 -> "${heritage}Doing $job by day, but my real superpower is flirting without cringing and hunting down the city's best $food.\n\nPros: Elite playlist curator for $hobbies, knows the low-key speakeasies ($social), will make you laugh until your cheeks hurt.\nCons: 100% competitive at trivia, will steal your fries while maintaining unbroken eye contact."
+            1 -> "${heritage}Equal parts ambitious in $job, deeply into $hobbies, and unapologetically flirtatious.\n\nLooking for someone who laughs at terrible puns, loves late-night $food, and won't back down when challenged to a playful wager over cocktails."
+            else -> "${heritage}Working in $job, obsessed with authentic $food, and currently accepting applications for an accomplice for $social & $hobbies.\n\nWarning: Conversations with me involve heavy sarcasm, unprovoked flirtation, and an 89% chance of impulsive weekend adventures."
         }
 
-        val bio2Text = when (seed.toInt()) {
+        val bioFlirtatious = when (seed.toInt()) {
+            0 -> "${heritage}Career-focused in $job, but off-duty: dangerous levels of charm, passion for $hobbies, and an ongoing quest for the finest $food.\n\nIf you have a quick wit, a contagious smile, and know your way around $social—you've officially caught my attention."
+            1 -> "${heritage}I make a great first impression and an even better date. Into $hobbies, late-night conversations over $social, and finding hidden $food gems.\n\nBet you can't hold eye contact for 5 seconds without smiling. Loser buys the first round."
+            else -> "${heritage}Living proof that ambition in $job and spontaneous romance aren't mutually exclusive.\n\nTell me your secret superpower or let me guess your go-to drink order based entirely on your photos."
+        }
+
+        val bioFunny = when (seed.toInt()) {
+            0 -> "${heritage}Taking $job way too seriously 9-to-5. Outside of work: testing every $food spot in town and attempting $hobbies with varying degrees of success.\n\nPros: Great listener, excellent at picking $social spots, 10/10 dog enthusiast.\nCons: Will dramatically quote movie lines at inappropriate moments."
+            1 -> "${heritage}Here for good laughs, great $food, and zero pen-pal texting. My life is roughly 40% $job, 40% $hobbies, and 20% wondering if iced coffee is a personality trait.\n\nSend me your most unhinged hot take."
+            else -> "${heritage}I promised my friends I'd write a serious bio, but who are we kidding? Passionate about $job, addicted to $food, and always down for $social.\n\nIf we match, you're contractually obligated to tell me a funny story from this week."
+        }
+
+        val bioConfidentDirect = when (seed.toInt()) {
             0 -> "Ambitious in my career ($job), spontaneous with my free time. When I'm off the clock, catch me into $hobbies or relaxing with $social.\n\nHere for $goals—not endless texting pen pals. If you appreciate good banter and comfortable silences, let's grab $food this week."
             1 -> "Zero games, high standards, and dry wit. Passionate about $job, obsessed with authentic $food, and always down for impromptu $hobbies.\n\nTell me the best trip you've ever taken or your most controversial food opinion."
             else -> "Career-driven ($job) with an adventurous streak. In my element: $social, outdoor $hobbies, and finding late-night $food.\n\nLooking for someone confident, kind, and ready to meet up for real dates."
         }
 
-        val bio3Text = when (seed.toInt()) {
+        val bioThoughtfulGenuine = when (seed.toInt()) {
             0 -> "Passionate about culture, great storytelling, and evening conversations over $social. You'll usually find me recharging with $hobbies or perfecting my $food recipe.\n\nTell me: what's a small joy that made you smile uncontrollably this week?"
             1 -> "Big fan of deep talks, good books, and spontaneous $hobbies. I believe $food tastes 10x better when shared with someone witty.\n\nWhat's your all-time favorite hidden gem in the city?"
             else -> "Appreciator of the details: warm lighting, curated playlists for $social, and the kind of laughter that hurts your stomach.\n\nLet's skip the awkward small talk—what are you currently obsessed with?"
         }
 
-        val bio4Text = when (seed.toInt()) {
-            0 -> "My ideal Saturday: early morning $hobbies, hunting down legendary $food, and winding down with $social.\n\nBet you can't beat me at Mario Kart or guess my favorite travel spot. Loser buys the first round of drinks."
-            1 -> "Living somewhere between focused ambition in $job and spontaneous weekend adventures ($hobbies).\n\nIf you love $social and have elite taste in $food, we're going to get along dangerously well."
-            else -> "Always up for exploring new neighborhoods, sharing $food, and getting lost in good conversation. Life's too short for boring dates.\n\nLet's get drinks Thursday—what's your drink of choice?"
-        }
-
         return listOf(
             BioRewrite(
                 id = UUID.randomUUID().toString(),
-                tone = "Witty & Playful (High Banter)",
+                tone = "Flirtatious, and funny (High Banter & Chemistry)",
                 targetApp = platform.displayName,
-                bioText = bio1Text,
+                bioText = bioFlirtatiousAndFunny,
+                whyItWorks = "Coach Breakdown: Pairing playful flirting with laugh-out-loud humor triggers instant dopamine and disarms defenses. Matches feel comfortable bantering back immediately."
+            ),
+            BioRewrite(
+                id = UUID.randomUUID().toString(),
+                tone = "Flirtatious & Playful (Electric Chemistry)",
+                targetApp = platform.displayName,
+                bioText = bioFlirtatious,
+                whyItWorks = "Coach Breakdown: Signals high confidence and magnetic charm without being arrogant. The playful eye contact challenge delivers a 3.2x higher reply rate."
+            ),
+            BioRewrite(
+                id = UUID.randomUUID().toString(),
+                tone = "Funny & Relatable (Banter & Laughs)",
+                targetApp = platform.displayName,
+                bioText = bioFunny,
                 whyItWorks = "Coach Breakdown: Self-deprecating pro/con humor paired with your authentic career in $job and love of $food gives matches an effortless, zero-awkwardness opening line."
             ),
             BioRewrite(
                 id = UUID.randomUUID().toString(),
                 tone = "Confident & Direct (Date Closer)",
                 targetApp = platform.displayName,
-                bioText = bio2Text,
+                bioText = bioConfidentDirect,
                 whyItWorks = "Coach Breakdown: Cuts through modern dating fatigue. Signals that you have high standards, professional drive ($job), and want an actual in-person date rather than months of pen-pal texting."
             ),
             BioRewrite(
                 id = UUID.randomUUID().toString(),
                 tone = "Thoughtful & Genuine (Deep Connection)",
                 targetApp = platform.displayName,
-                bioText = bio3Text,
+                bioText = bioThoughtfulGenuine,
                 whyItWorks = "Coach Breakdown: Filters for emotional maturity. The open-ended question at the end has an 86% reply rate because it encourages matches to share joyful memories."
-            ),
-            BioRewrite(
-                id = UUID.randomUUID().toString(),
-                tone = "Adventure & Lifestyle (Magnetic Social Proof)",
-                targetApp = platform.displayName,
-                bioText = bio4Text,
-                whyItWorks = "Coach Breakdown: Highlights an active, multi-faceted lifestyle ($social & $hobbies). The playful wager naturally sets up the first date concept directly in the bio!"
             )
         )
     }
@@ -318,7 +344,9 @@ class GeminiOptimizerService {
         val socialLower = biography.socialFun.lowercase(Locale.ROOT)
         val hobbiesLower = biography.hobbies.lowercase(Locale.ROOT)
         val goalsLower = biography.datingGoals.lowercase(Locale.ROOT)
+        val vibeLower = biography.datingVibe.lowercase(Locale.ROOT)
 
+        val isFlirtatiousAndFunny = vibeLower.contains("flirt") || vibeLower.contains("funny")
         val isCareerDriven = jobLower.contains("engineer") || jobLower.contains("lawyer") || jobLower.contains("doctor") ||
                 jobLower.contains("nurse") || jobLower.contains("finance") || jobLower.contains("tech") ||
                 jobLower.contains("manager") || jobLower.contains("director") || jobLower.contains("founder")
@@ -327,82 +355,94 @@ class GeminiOptimizerService {
         val isGayMen = gender == UserGender.MAN && interestedIn == InterestedIn.MEN
         val isQueerWomen = gender == UserGender.WOMAN && interestedIn == InterestedIn.WOMEN
 
+        val vibeHighlight = if (isFlirtatiousAndFunny) {
+            "Your '${biography.datingVibe}' banter tone converts 3.6x faster into first dates through prompt replies."
+        } else {
+            "Your authentic tone matches intentional daters seeking real connection."
+        }
+
         return when {
             isGayMen -> DatingAppRecommendation(
-                appName = "Scruff & Hinge",
-                matchScore = "98% Compatibility",
+                appName = "Scruff",
+                matchScore = "98% Match",
                 badge = "LGBTQ+ High-Conversion Pick",
-                coachHeadline = "Ideal for intentional queer connections and authentic lifestyle sharing.",
+                coachHeadline = "A.I. selected Scruff based on your career in ${biography.jobTitle.ifBlank { "your field" }} and community interests.",
                 whyItMatchesProfile = listOf(
-                    "Your background in ${biography.jobTitle.ifBlank { "your career" }} and passion for ${biography.hobbies.ifBlank { "adventures" }} shines in community-driven formats.",
-                    "Scruff Venture and Hinge prompts filter for real emotional chemistry and date-readiness over superficial swipes."
+                    "Your background in ${biography.jobTitle.ifBlank { "your profession" }} and passion for ${biography.hobbies.ifBlank { "travel & hobbies" }} excels in community-driven discovery.",
+                    vibeHighlight,
+                    "Scruff Venture and lifestyle prompts filter for date-readiness and authentic chemistry."
                 ),
-                recommendedBioAngle = "Highlight your travel passions and weekend speakeasy vibe.",
+                recommendedBioAngle = "Highlight your travel passions, ${biography.favoriteFood.ifBlank { "speakeasies" }}, and warm banter style.",
                 targetPlatform = DatingPlatform.SCRUFF,
                 playStorePackage = "com.appspot.scruffapp"
             )
             isQueerWomen -> DatingAppRecommendation(
-                appName = "HER & Hinge",
-                matchScore = "97% Compatibility",
+                appName = "HER",
+                matchScore = "97% Match",
                 badge = "WLW Community #1 Choice",
-                coachHeadline = "Safe, authentic community where shared passions and humor lead directly to dates.",
+                coachHeadline = "A.I. gathered HER based on your shared passions and conversation goals.",
                 whyItMatchesProfile = listOf(
-                    "Your culinary interest in ${biography.favoriteFood.ifBlank { "good food" }} and love of ${biography.hobbies.ifBlank { "hobbies" }} creates instant conversational rapport.",
-                    "HER community events and Hinge's detailed prompt system eliminate awkward first messages."
+                    "Your culinary interest in ${biography.favoriteFood.ifBlank { "great food" }} and love of ${biography.hobbies.ifBlank { "hobbies" }} creates instant conversational rapport.",
+                    vibeHighlight,
+                    "HER's community events and detailed prompt feeds eliminate awkward opening messages."
                 ),
-                recommendedBioAngle = "Lead with your favorite Sunday routine and creative weekend fun.",
+                recommendedBioAngle = "Lead with your favorite weekend routine, foodie spots, and creative banter.",
                 targetPlatform = DatingPlatform.HER,
                 playStorePackage = "com.weareher.her"
             )
             isAlternativeOrFluid -> DatingAppRecommendation(
                 appName = "Feeld",
-                matchScore = "95% Compatibility",
-                badge = "Progressive & Open-Minded",
-                coachHeadline = "The gold standard for progressive, non-judgmental singles seeking genuine authenticity.",
+                matchScore = "95% Match",
+                badge = "Progressive & Non-Judgmental",
+                coachHeadline = "A.I. gathered Feeld matching your open dating philosophy (${biography.datingGoals.ifBlank { "intentional connections" }}).",
                 whyItMatchesProfile = listOf(
                     "Matches your relaxed, open dating goals (${biography.datingGoals.ifBlank { "authentic connections" }}).",
-                    "Allows full self-expression without outdated traditional dating scripts."
+                    "Allows full self-expression without outdated traditional dating scripts.",
+                    vibeHighlight
                 ),
-                recommendedBioAngle = "Honest, witty self-expression focused on culinary cravings and weekend music.",
+                recommendedBioAngle = "Honest, witty self-expression focused on ${biography.hobbies.ifBlank { "festivals" }} and weekend cravings.",
                 targetPlatform = DatingPlatform.FEELD,
                 playStorePackage = "co.feeld"
             )
             isCareerDriven || goalsLower.contains("long") || goalsLower.contains("serious") -> DatingAppRecommendation(
                 appName = "Hinge",
-                matchScore = "98% Compatibility",
-                badge = "Dating Coach Top Recommendation",
-                coachHeadline = "Designed to be deleted. Perfect for witty, ambitious singles looking for high-quality dates.",
+                matchScore = "99% Match",
+                badge = "A.I. Top Recommendation",
+                coachHeadline = "A.I. gathered Hinge as your #1 high-conversion dating app based on your career and dating goals.",
                 whyItMatchesProfile = listOf(
-                    "Your professional background in ${biography.jobTitle.ifBlank { "your field" }} and cultural tastes (${biography.favoriteFood.ifBlank { "culinary spots" }}) align with Hinge daters seeking substance.",
-                    "Hinge's comment-first matching mechanism yields 3.2x higher conversion from match to in-person coffee or drinks."
+                    "Your professional role in ${biography.jobTitle.ifBlank { "your career" }} and tastes (${biography.favoriteFood.ifBlank { "culinary spots" }}) align with Hinge singles seeking intentional substance.",
+                    "Hinge's prompt-first commenting system yields 3.2x higher conversion from match to in-person dates.",
+                    vibeHighlight
                 ),
-                recommendedBioAngle = "Use witty pro/con humor, mention your favorite $jobLower anecdotes, and include an instant date idea prompt.",
+                recommendedBioAngle = "Use witty pro/con banter, mention your favorite ${biography.jobTitle.ifBlank { "work" }} story, and add a low-stakes first date invitation.",
                 targetPlatform = DatingPlatform.HINGE,
                 playStorePackage = "co.hinge.app"
             )
-            isCasualOrParty -> DatingAppRecommendation(
-                appName = "Bumble & Tinder",
-                matchScore = "94% Compatibility",
-                badge = "High-Energy Visual Match",
-                coachHeadline = "Fast-paced, vibrant dating pool ideal for active social lifestyles.",
+            isCasualOrParty || vibeLower.contains("flirt") -> DatingAppRecommendation(
+                appName = "Bumble",
+                matchScore = "96% Match",
+                badge = "High-Energy Chemistry Pick",
+                coachHeadline = "A.I. gathered Bumble based on your outgoing personality and witty conversational vibe.",
                 whyItMatchesProfile = listOf(
-                    "Your outgoing social vibe (${biography.socialFun.ifBlank { "nightlife & music" }}) excels in visual swipe feeds.",
-                    "Bumble gives matches a direct 24-hour window to reach out, while Tinder offers the largest dating pool."
+                    "Your outgoing vibe (${biography.socialFun.ifBlank { "weekend social life" }}) excels in fast-moving discovery feeds.",
+                    "Bumble gives a 24-hour match window where your '${biography.datingVibe}' opener gets immediate answers.",
+                    "Shared culinary tastes (${biography.favoriteFood.ifBlank { "favorite spots" }}) provide effortless first-date ideas."
                 ),
-                recommendedBioAngle = "Short, punchy bio with a playful wager ('loser buys tacos') and high-contrast smile lead photo.",
+                recommendedBioAngle = "Short, punchy bio with a playful banter challenge and an instant taco or drink wager.",
                 targetPlatform = DatingPlatform.BUMBLE,
                 playStorePackage = "com.bumble.app"
             )
             else -> DatingAppRecommendation(
                 appName = "Hinge",
-                matchScore = "96% Compatibility",
+                matchScore = "96% Match",
                 badge = "Balanced Relationship Match",
-                coachHeadline = "The strongest all-around dating platform for singles seeking genuine chemistry and great conversation.",
+                coachHeadline = "A.I. gathered Hinge as the strongest platform matching your profile dossier.",
                 whyItMatchesProfile = listOf(
-                    "Your profile interests in ${biography.hobbies.ifBlank { "weekend adventures" }} and ${biography.favoriteFood.ifBlank { "foodie spots" }} make for irresistible prompt answers.",
-                    "Avoids swipe fatigue by emphasizing intentional comments on lifestyle photos."
+                    "Your profile interests in ${biography.hobbies.ifBlank { "weekend adventures" }} and ${biography.favoriteFood.ifBlank { "good food" }} make for irresistible prompt answers.",
+                    vibeHighlight,
+                    "Avoids superficial swipe fatigue by emphasizing intentional lifestyle comments."
                 ),
-                recommendedBioAngle = "Balanced blend of ambition, culinary favorites, and a low-stakes first date invitation.",
+                recommendedBioAngle = "Balanced blend of ambition, culinary favorites, and a witty first date invitation.",
                 targetPlatform = DatingPlatform.HINGE,
                 playStorePackage = "co.hinge.app"
             )
@@ -438,15 +478,21 @@ class GeminiOptimizerService {
             listOf(
                 CopilotReply(
                     id = UUID.randomUUID().toString(),
-                    style = "The Playful Challenge (Highest Reply Rate)",
-                    text = "Two truths and a lie: you're actually obsessed with $keywordAnchor, you make world-class cocktails, or you secretly watch trash reality TV. Which one am I calling out first?",
-                    reason = "Coach Strategy: An interactive game gives them an effortless dopamine hit. It bypasses polite small-talk and sparks instant banter with a 91%+ response rate."
+                    style = "Flirtatious, and Funny Opener (Highest Reply Rate)",
+                    text = "Alright, your profile has an alarming shortage of red flags. Be honest: what's the catch with you?",
+                    reason = "Coach Strategy: High-status playful flirtation. It flips the dynamic, complimenting them while teasing them to qualify themselves to you."
                 ),
                 CopilotReply(
                     id = UUID.randomUUID().toString(),
-                    style = "The Observant Tease",
-                    text = "Alright, your $keywordAnchor vibe looks dangerously fun—were you actually that composed in real life, or was that 100% curated for the camera?",
-                    reason = "Coach Strategy: Light teasing creates immediate sexual tension and rapport. It shows confidence and that you aren't putting them on a pedestal."
+                    style = "Flirtatious Tease (Builds Sparks & Chemistry)",
+                    text = "Your $keywordAnchor vibe looks dangerously fun—were you actually that composed in real life, or was that 100% curated for the camera?",
+                    reason = "Coach Strategy: Light teasing creates immediate sexual tension and rapport. It shows confidence and banter without putting them on a pedestal."
+                ),
+                CopilotReply(
+                    id = UUID.randomUUID().toString(),
+                    style = "Funny Banter Challenge (Zero Small Talk)",
+                    text = "Two truths and a lie: you're actually obsessed with $keywordAnchor, you make world-class cocktails, or you secretly watch trash reality TV. Which one am I calling out first?",
+                    reason = "Coach Strategy: An interactive game gives them an effortless dopamine hit. It bypasses polite small-talk and sparks instant banter with a 91%+ response rate."
                 ),
                 CopilotReply(
                     id = UUID.randomUUID().toString(),

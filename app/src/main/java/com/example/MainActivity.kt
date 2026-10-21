@@ -6,6 +6,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -28,9 +29,24 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         com.example.data.service.RevenueCatService.initialize(this)
         setContent {
-            com.example.ui.theme.SuiterTheme {
-                Surface(modifier = Modifier.fillMaxSize()) {
-                    SuiterApp()
+            val viewModel: ProfileViewModel = viewModel()
+            val context = LocalContext.current
+            LaunchedEffect(Unit) {
+                viewModel.initContext(context)
+            }
+            val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
+            val systemInDark = androidx.compose.foundation.isSystemInDarkTheme()
+            val isDark = when (themeMode) {
+                com.example.data.model.AppThemeMode.LIGHT -> false
+                com.example.data.model.AppThemeMode.DARK -> true
+                com.example.data.model.AppThemeMode.SYSTEM -> systemInDark
+            }
+            com.example.ui.theme.SuiterTheme(darkTheme = isDark) {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    SuiterApp(viewModel = viewModel)
                 }
             }
         }
@@ -55,6 +71,7 @@ fun SuiterApp(
     val userPreference by viewModel.userPreference.collectAsStateWithLifecycle()
     val userPhotos by viewModel.userPhotos.collectAsStateWithLifecycle()
     val userBio by viewModel.userBio.collectAsStateWithLifecycle()
+    val isAnalyzing by viewModel.isAnalyzing.collectAsStateWithLifecycle()
     val analysisStep by viewModel.analysisStep.collectAsStateWithLifecycle()
     val auditResult by viewModel.auditResult.collectAsStateWithLifecycle()
     val bioRewrites by viewModel.bioRewrites.collectAsStateWithLifecycle()
@@ -70,6 +87,7 @@ fun SuiterApp(
     val showProfileCreationModal by viewModel.showProfileCreationModal.collectAsStateWithLifecycle()
     val copiedContentSnippet by viewModel.copiedContentSnippet.collectAsStateWithLifecycle()
     val copiedContentTitle by viewModel.copiedContentTitle.collectAsStateWithLifecycle()
+    val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
 
     // BackHandler for sub-screens
     if (screenState != ScreenState.ONBOARDING && screenState != ScreenState.PHOTO_UPLOAD) {
@@ -128,7 +146,21 @@ fun SuiterApp(
 
         ScreenState.ANALYZING -> {
             AnalyzingScreen(
-                currentStepText = analysisStep
+                currentStepText = analysisStep,
+                photos = userPhotos,
+                isAnalyzing = isAnalyzing,
+                onUpdatePhotoEdits = { photoId, edits ->
+                    viewModel.updatePhotoEdits(photoId, edits)
+                },
+                onApplyEditsToAll = { edits ->
+                    viewModel.applyEditsToAllPhotos(edits)
+                },
+                onSubmitToProfile = {
+                    viewModel.submitPhotosToProfile()
+                },
+                onBackToUpload = {
+                    viewModel.navigateTo(ScreenState.PHOTO_UPLOAD)
+                }
             )
         }
 
@@ -212,10 +244,10 @@ fun SuiterApp(
             PaywallScreen(
                 isCurrentPremium = isPremium,
                 onPurchaseCompleted = {
-                    viewModel.setPremium(true)
+                    viewModel.onSubscriptionPurchased(context)
                 },
                 onRestorePurchases = {
-                    viewModel.setPremium(true)
+                    viewModel.onSubscriptionPurchased(context)
                 },
                 onClose = {
                     viewModel.navigateBack()
@@ -241,6 +273,8 @@ fun SuiterApp(
             SettingsComplianceScreen(
                 reports = reports,
                 isPremium = isPremium,
+                themeMode = themeMode,
+                onThemeModeChanged = { viewModel.setThemeMode(it, context) },
                 onTogglePremium = { viewModel.setPremium(it) },
                 onDeletePhotos = { viewModel.deletePhotos() },
                 onDeleteAccountAndData = { viewModel.deleteEntireAccount() },
@@ -285,6 +319,7 @@ fun SuiterApp(
     if (showDatingAppMatchDialog && recommendedApp != null) {
         CoachDatingAppMatchDialog(
             recommendation = recommendedApp!!,
+            biography = userBiography,
             onApplyPlatform = { platform ->
                 viewModel.applyRecommendedDatingApp(platform)
             },

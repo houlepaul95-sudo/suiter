@@ -16,16 +16,24 @@ import kotlinx.coroutines.flow.asStateFlow
 object RevenueCatService {
     private const val TAG = "RevenueCatService"
     const val ENTITLEMENT_ID = "profilepulse_pro"
+    const val PRODUCT_BOOST_ID = "suitor_profile_boost_30d"
+    private const val PREFS_NAME = "suiter_billing_prefs"
+    private const val KEY_BOOST_EXPIRES_AT = "suitor_boost_expires_at"
 
     // Default placeholder/test key from user or environment
     var currentApiKey: String = "test_lTrGPqtypfValnDmdedvDRYZsbS"
         private set
+
+    private var appContext: Context? = null
 
     private val _isProActive = MutableStateFlow(false)
     val isProActive: StateFlow<Boolean> = _isProActive.asStateFlow()
 
     private val _currentTier = MutableStateFlow(SubscriptionTier.FREE)
     val currentTier: StateFlow<SubscriptionTier> = _currentTier.asStateFlow()
+
+    private val _boostExpiresAt = MutableStateFlow<Long?>(null)
+    val boostExpiresAt: StateFlow<Long?> = _boostExpiresAt.asStateFlow()
 
     private val _currentOffering = MutableStateFlow<Offering?>(null)
     val currentOffering: StateFlow<Offering?> = _currentOffering.asStateFlow()
@@ -37,6 +45,16 @@ object RevenueCatService {
     val isLiveSdkActive: StateFlow<Boolean> = _isLiveSdkActive.asStateFlow()
 
     private var isConfigured = false
+
+    fun getDaysRemainingInBoost(): Int {
+        val expiry = _boostExpiresAt.value ?: return 0
+        val diff = expiry - System.currentTimeMillis()
+        return if (diff > 0) {
+            ((diff / (1000L * 60 * 60 * 24)) + 1).toInt()
+        } else {
+            0
+        }
+    }
 
     fun getMaskedApiKey(): String {
         val key = currentApiKey.trim()
@@ -50,6 +68,9 @@ object RevenueCatService {
     }
 
     fun initialize(context: Context) {
+        appContext = context.applicationContext
+        checkStoredBoostAccess(context)
+
         if (isConfigured || Purchases.isConfigured) {
             isConfigured = true
             _isLiveSdkActive.value = true
@@ -66,6 +87,41 @@ object RevenueCatService {
 
         currentApiKey = configuredKey.trim()
         configureWithKey(context, currentApiKey)
+    }
+
+    private fun checkStoredBoostAccess(context: Context) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val savedExpiry = prefs.getLong(KEY_BOOST_EXPIRES_AT, 0L)
+        val now = System.currentTimeMillis()
+        if (savedExpiry > now) {
+            _boostExpiresAt.value = savedExpiry
+            _isProActive.value = true
+            _currentTier.value = SubscriptionTier.PROFILE_BOOST
+            val days = ((savedExpiry - now) / (1000L * 60 * 60 * 24) + 1).toInt()
+            _statusMessage.value = "Suitor Profile Boost Active ($days days remaining)"
+        } else if (savedExpiry > 0L) {
+            // Expired after 30 days — locked back to Basic Plan
+            _boostExpiresAt.value = null
+            prefs.edit().remove(KEY_BOOST_EXPIRES_AT).apply()
+            if (!_isProActive.value || _currentTier.value == SubscriptionTier.PROFILE_BOOST) {
+                _isProActive.value = false
+                _currentTier.value = SubscriptionTier.FREE
+                _statusMessage.value = "30-day Profile Boost ended. Locked to Basic Plan."
+            }
+        }
+    }
+
+    fun activateProfileBoost30Days(context: Context? = appContext) {
+        val expiryTime = System.currentTimeMillis() + (30L * 24 * 60 * 60 * 1000L)
+        _boostExpiresAt.value = expiryTime
+        _isProActive.value = true
+        _currentTier.value = SubscriptionTier.PROFILE_BOOST
+        _statusMessage.value = "Suiter Profile Boost Active (30 days access unlocked)"
+
+        context?.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            ?.edit()
+            ?.putLong(KEY_BOOST_EXPIRES_AT, expiryTime)
+            ?.apply()
     }
 
     fun updateApiKey(context: Context, newKey: String) {
@@ -137,22 +193,41 @@ object RevenueCatService {
             ?: customerInfo.entitlements["pro"]
             ?: customerInfo.entitlements["premium"]
             ?: customerInfo.entitlements["all_access"]
+            ?: customerInfo.entitlements["boost"]
             ?: customerInfo.entitlements.all.values.firstOrNull { it.isActive }
 
         val hasPro = activeEntitlement?.isActive == true
-        _isProActive.value = hasPro
+        val now = System.currentTimeMillis()
+        val hasValidBoost = _boostExpiresAt.value != null && _boostExpiresAt.value!! > now
 
-        val tier = when {
-            !hasPro -> SubscriptionTier.FREE
-            activeEntitlement?.productIdentifier?.contains("annual", ignoreCase = true) == true ||
-            activeEntitlement?.productIdentifier?.contains("year", ignoreCase = true) == true -> SubscriptionTier.ANNUAL
-            activeEntitlement?.productIdentifier?.contains("weekly", ignoreCase = true) == true ||
-            activeEntitlement?.productIdentifier?.contains("week", ignoreCase = true) == true -> SubscriptionTier.WEEKLY
-            else -> SubscriptionTier.MONTHLY
+        if (hasPro) {
+            _isProActive.value = true
+            val tier = when {
+                activeEntitlement?.productIdentifier?.contains("boost", ignoreCase = true) == true ||
+                activeEntitlement?.productIdentifier?.contains("30d", ignoreCase = true) == true ||
+                activeEntitlement?.productIdentifier == PRODUCT_BOOST_ID -> {
+                    activateProfileBoost30Days()
+                    SubscriptionTier.PROFILE_BOOST
+                }
+                activeEntitlement?.productIdentifier?.contains("annual", ignoreCase = true) == true ||
+                activeEntitlement?.productIdentifier?.contains("year", ignoreCase = true) == true -> SubscriptionTier.ANNUAL
+                activeEntitlement?.productIdentifier?.contains("weekly", ignoreCase = true) == true ||
+                activeEntitlement?.productIdentifier?.contains("week", ignoreCase = true) == true -> SubscriptionTier.WEEKLY
+                else -> SubscriptionTier.MONTHLY
+            }
+            _currentTier.value = tier
+            _statusMessage.value = "Suiter ${tier.title} is Active"
+            Log.i(TAG, "Entitlement check: active=$hasPro, tier=${tier.title}")
+        } else if (hasValidBoost) {
+            _isProActive.value = true
+            _currentTier.value = SubscriptionTier.PROFILE_BOOST
+            val days = getDaysRemainingInBoost()
+            _statusMessage.value = "Suiter Profile Boost Active ($days days remaining)"
+        } else {
+            _isProActive.value = false
+            _currentTier.value = SubscriptionTier.FREE
+            _statusMessage.value = "Basic Plan (Pro inactive)"
         }
-        _currentTier.value = tier
-        _statusMessage.value = if (hasPro) "Suiter ${tier.title} is Active" else "Free Tier (Pro inactive)"
-        Log.i(TAG, "Entitlement check: active=$hasPro, tier=${tier.title}")
     }
 
     fun fetchOfferings(onResult: ((Offering?) -> Unit)? = null) {
@@ -187,9 +262,20 @@ object RevenueCatService {
         onError: (PurchasesError, Boolean) -> Unit
     ) {
         val targetTier = when {
-            rcPackage.identifier.contains("annual", ignoreCase = true) || rcPackage.product.id.contains("annual", ignoreCase = true) || rcPackage.identifier.contains("yearly", ignoreCase = true) -> SubscriptionTier.ANNUAL
-            rcPackage.identifier.contains("weekly", ignoreCase = true) || rcPackage.product.id.contains("weekly", ignoreCase = true) -> SubscriptionTier.WEEKLY
+            rcPackage.identifier.contains("boost", ignoreCase = true) ||
+            rcPackage.identifier.contains("30d", ignoreCase = true) ||
+            rcPackage.product.id.contains("boost", ignoreCase = true) ||
+            rcPackage.product.id == PRODUCT_BOOST_ID -> SubscriptionTier.PROFILE_BOOST
+            rcPackage.identifier.contains("annual", ignoreCase = true) ||
+            rcPackage.product.id.contains("annual", ignoreCase = true) ||
+            rcPackage.identifier.contains("yearly", ignoreCase = true) -> SubscriptionTier.ANNUAL
+            rcPackage.identifier.contains("weekly", ignoreCase = true) ||
+            rcPackage.product.id.contains("weekly", ignoreCase = true) -> SubscriptionTier.WEEKLY
             else -> SubscriptionTier.MONTHLY
+        }
+
+        if (targetTier == SubscriptionTier.PROFILE_BOOST) {
+            activateProfileBoost30Days(activity)
         }
 
         if (!isConfigured || !_isLiveSdkActive.value) {

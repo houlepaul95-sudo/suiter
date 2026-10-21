@@ -51,6 +51,11 @@ class ProfileViewModel(
     val userBiography = repository.userBiography
     val hasSeenRateMe = repository.hasSeenRateMe
     val hasCompletedBiography = repository.hasCompletedBiography
+    val themeMode = repository.themeMode
+
+    fun setThemeMode(mode: AppThemeMode, context: android.content.Context? = null) {
+        repository.setThemeMode(mode, context)
+    }
 
     // Dialog & Flow States
     private val _showRateMeDialog = MutableStateFlow(false)
@@ -155,6 +160,14 @@ class ProfileViewModel(
         repository.removePhoto(id)
     }
 
+    fun updatePhotoEdits(photoId: String, edits: PhotoEdits) {
+        repository.updatePhotoEdits(photoId, edits)
+    }
+
+    fun applyEditsToAllPhotos(edits: PhotoEdits) {
+        repository.applyEditsToAllPhotos(edits)
+    }
+
     fun updateBio(bio: String) {
         repository.setUserBio(bio)
     }
@@ -163,6 +176,12 @@ class ProfileViewModel(
         navigateTo(ScreenState.ANALYZING)
         viewModelScope.launch {
             repository.runProfileAudit()
+        }
+    }
+
+    fun submitPhotosToProfile() {
+        viewModelScope.launch {
+            repository.refreshAuditForEditedPhotos()
             _screenBackStack.clear()
             _screenState.value = ScreenState.SCORE_REVEAL
         }
@@ -201,6 +220,33 @@ class ProfileViewModel(
         repository.setSubscriptionTier(tier)
     }
 
+    var pendingAiDirectAfterProfile: Boolean = false
+        private set
+
+    fun onSubscriptionPurchased(context: android.content.Context) {
+        setPremium(true)
+        val bio = userBiography.value
+        val isProfileFilled = bio.isCompleted || (bio.jobTitle.isNotBlank() || bio.hobbies.isNotBlank() || bio.datingGoals.isNotBlank())
+
+        if (isProfileFilled) {
+            // Profile is already filled: Immediately have A.I. direct them with sleek tap button to gathered app!
+            val recommendation = repository.getRecommendedDatingSite()
+            _recommendedApp.value = recommendation
+            _showDatingAppMatchDialog.value = true
+            pendingAiDirectAfterProfile = false
+        } else {
+            // User paid but hasn't completed profile dossier yet: prompt them to fill profile immediately
+            pendingAiDirectAfterProfile = true
+            _showBiographyDialog.value = true
+        }
+    }
+
+    fun openAiDirectAppDialog() {
+        val recommendation = repository.getRecommendedDatingSite()
+        _recommendedApp.value = recommendation
+        _showDatingAppMatchDialog.value = true
+    }
+
     fun deletePhotos() {
         repository.deleteUserPhotos()
         _screenBackStack.clear()
@@ -232,10 +278,11 @@ class ProfileViewModel(
             return false
         }
         _showBiographyDialog.value = false
-        // Calculate tailored dating app match from coach and show recommendation!
+        // Calculate tailored dating app match from A.I. and show sleek directing dialog!
         val recommendation = repository.getRecommendedDatingSite()
         _recommendedApp.value = recommendation
         _showDatingAppMatchDialog.value = true
+        pendingAiDirectAfterProfile = false
         return true
     }
 

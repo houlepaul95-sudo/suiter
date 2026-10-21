@@ -170,6 +170,24 @@ fun CopilotScreen(
 
             Spacer(modifier = Modifier.height(8.dp))
 
+            // Dating Vibe & Tone Variable Selector
+            var selectedToneVariable by remember { mutableStateOf("Flirtatious, and funny") }
+            val toneVariables = listOf("Flirtatious, and funny", "Flirtatious", "Funny", "High Banter", "Smooth Closer")
+
+            Text("Tone Variable:", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = RosePrimary)
+            Spacer(modifier = Modifier.height(3.dp))
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                items(toneVariables) { tone ->
+                    FilterChip(
+                        selected = selectedToneVariable == tone,
+                        onClick = { selectedToneVariable = tone },
+                        label = { Text(tone, fontSize = 11.sp, fontWeight = if (selectedToneVariable == tone) FontWeight.Bold else FontWeight.Normal) }
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
             // Quick Context Presets
             Text("Quick scenarios for instant testing:", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(modifier = Modifier.height(4.dp))
