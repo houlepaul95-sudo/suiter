@@ -126,6 +126,12 @@ fun SuiterApp(
                 onPhotoRemoved = { id ->
                     viewModel.removePhoto(id)
                 },
+                onUpdatePhotoEdits = { photoId, edits ->
+                    viewModel.updatePhotoEdits(photoId, edits)
+                },
+                onApplyEditsToAll = { edits ->
+                    viewModel.applyEditsToAllPhotos(edits)
+                },
                 onBioChanged = { bio ->
                     viewModel.updateBio(bio)
                 },

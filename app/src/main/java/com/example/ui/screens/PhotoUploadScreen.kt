@@ -56,6 +56,8 @@ fun PhotoUploadScreen(
     biography: UserBiography = UserBiography(),
     onPhotosSelected: (List<String>) -> Unit,
     onPhotoRemoved: (String) -> Unit,
+    onUpdatePhotoEdits: (String, com.example.data.model.PhotoEdits) -> Unit = { _, _ -> },
+    onApplyEditsToAll: (com.example.data.model.PhotoEdits) -> Unit = {},
     onBioChanged: (String) -> Unit,
     onStartAnalysis: () -> Unit,
     onOpenSettings: () -> Unit,
@@ -66,6 +68,8 @@ fun PhotoUploadScreen(
     var showLibraryDialog by remember { mutableStateOf(false) }
     var showUrlInputDialog by remember { mutableStateOf(false) }
     var customUrlText by remember { mutableStateOf("") }
+    var showPhotoEditorOverlay by remember { mutableStateOf(false) }
+    var editorInitialIndex by remember { mutableStateOf(0) }
 
     // Curated high quality diverse test profile photos for emulator testing
     val curatedTestPhotos = remember {
@@ -123,7 +127,9 @@ fun PhotoUploadScreen(
         contract = ActivityResultContracts.PickMultipleVisualMedia(6)
     ) { uris: List<Uri> ->
         if (uris.isNotEmpty()) {
+            editorInitialIndex = photos.size.coerceAtMost(5)
             onPhotosSelected(uris.map { it.toString() })
+            showPhotoEditorOverlay = true
         }
     }
 
@@ -132,7 +138,9 @@ fun PhotoUploadScreen(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         if (uri != null) {
+            editorInitialIndex = photos.size.coerceAtMost(5)
             onPhotosSelected(listOf(uri.toString()))
+            showPhotoEditorOverlay = true
         }
     }
 
@@ -213,7 +221,9 @@ fun PhotoUploadScreen(
                         Button(
                             onClick = {
                                 val full6Set = curatedTestPhotos.take(6).map { it.url }
+                                editorInitialIndex = 0
                                 onPhotosSelected(full6Set)
+                                showPhotoEditorOverlay = true
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = RosePrimary),
                             shape = RoundedCornerShape(8.dp),
@@ -314,6 +324,10 @@ fun PhotoUploadScreen(
                                 .aspectRatio(0.85f)
                                 .clip(RoundedCornerShape(12.dp))
                                 .border(1.5.dp, if (index == 0) RosePrimary else Color.Transparent, RoundedCornerShape(12.dp))
+                                .clickable {
+                                    editorInitialIndex = index
+                                    showPhotoEditorOverlay = true
+                                }
                         ) {
                             com.example.ui.components.RetouchedPortraitImage(
                                 photo = photo,
@@ -336,18 +350,24 @@ fun PhotoUploadScreen(
                                 }
                             }
 
-                            // Retouched badge
-                            if (photo.edits.isEdited) {
-                                Box(
-                                    modifier = Modifier
-                                        .align(Alignment.BottomStart)
-                                        .padding(4.dp)
-                                        .clip(RoundedCornerShape(4.dp))
-                                        .background(GreenSuccess.copy(alpha = 0.9f))
-                                        .padding(horizontal = 5.dp, vertical = 2.dp)
-                                ) {
-                                    Text("✨ Edited", color = Color.White, fontSize = 8.sp, fontWeight = FontWeight.Bold)
-                                }
+                            // Edit / Retouched badge at bottom-left
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.BottomStart)
+                                    .padding(4.dp)
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(
+                                        if (photo.edits.isEdited) GreenSuccess.copy(alpha = 0.92f)
+                                        else Color.Black.copy(alpha = 0.68f)
+                                    )
+                                    .padding(horizontal = 5.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = if (photo.edits.isEdited) "✨ Edited" else "✎ Edit",
+                                    color = Color.White,
+                                    fontSize = 8.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
                             }
 
                             // Remove button
@@ -763,11 +783,16 @@ fun PhotoUploadScreen(
                         }
 
                         Button(
-                            onClick = { showLibraryDialog = false },
+                            onClick = {
+                                showLibraryDialog = false
+                                if (photos.isNotEmpty()) {
+                                    showPhotoEditorOverlay = true
+                                }
+                            },
                             colors = ButtonDefaults.buttonColors(containerColor = RosePrimary),
                             modifier = Modifier.weight(1f)
                         ) {
-                            Text("Done (${photos.size})", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text("Edit & Done (${photos.size})", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -797,20 +822,37 @@ fun PhotoUploadScreen(
                 Button(
                     onClick = {
                         if (customUrlText.isNotBlank()) {
+                            editorInitialIndex = photos.size.coerceAtMost(5)
                             onPhotosSelected(listOf(customUrlText.trim()))
                             customUrlText = ""
                             showUrlInputDialog = false
+                            showPhotoEditorOverlay = true
                         }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = RosePrimary)
                 ) {
-                    Text("Add")
+                    Text("Add & Edit")
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showUrlInputDialog = false }) {
                     Text("Cancel")
                 }
+            }
+        )
+    }
+
+    // Modal 4: Compose Canvas Photo Editor Overlay (appears automatically after selecting a photo)
+    if (showPhotoEditorOverlay && photos.isNotEmpty()) {
+        com.example.ui.components.PhotoEditorOverlay(
+            photos = photos,
+            initialPhotoIndex = editorInitialIndex,
+            onUpdatePhotoEdits = onUpdatePhotoEdits,
+            onApplyEditsToAll = onApplyEditsToAll,
+            onDismiss = { showPhotoEditorOverlay = false },
+            onSaveAndStartAnalysis = {
+                showPhotoEditorOverlay = false
+                onStartAnalysis()
             }
         )
     }

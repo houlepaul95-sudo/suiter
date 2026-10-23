@@ -4,20 +4,36 @@ import kotlin.math.abs
 
 data class PhotoEdits(
     val skinSoftening: Float = 0f,     // 0f..1f (Soften skin tone & smooth blemishes)
-    val jawWidth: Float = 0f,          // -0.5f..1f (Slim or widen jawline structure)
+    val jawWidth: Float = 0f,          // -0.5f..1f (Slim or widen jawline structure via mesh warp)
     val skinWarmth: Float = 0f,        // 0f..1f (Golden hour skin warmth)
     val eyeClarity: Float = 0f,        // 0f..1f (Eye brightness & contrast pop)
-    val jawContour: Float = 0f         // 0f..1f (Cheekbone & jawline shadow sculpting)
+    val jawContour: Float = 0f,        // 0f..1f (Cheekbone & jawline shadow sculpting)
+    val brightness: Float = 0f,        // -0.5f..0.5f (Canvas brightness filter adjustment)
+    val contrast: Float = 0f,          // -0.5f..0.5f (Canvas contrast filter adjustment)
+    val perspectiveWarp: Float = 0f    // -0.5f..0.5f (Vertical chin/jaw perspective tilt warp)
 ) {
     val isEdited: Boolean
         get() = skinSoftening > 0.01f || abs(jawWidth) > 0.01f ||
-                skinWarmth > 0.01f || eyeClarity > 0.01f || jawContour > 0.01f
+                skinWarmth > 0.01f || eyeClarity > 0.01f || jawContour > 0.01f ||
+                abs(brightness) > 0.01f || abs(contrast) > 0.01f || abs(perspectiveWarp) > 0.01f
 
     fun summaryBadges(): List<String> {
         val badges = mutableListOf<String>()
         if (skinSoftening > 0.01f) badges.add("Skin Softened ${(skinSoftening * 100).toInt()}%")
         if (jawWidth > 0.01f) badges.add("Jaw Widened +${(jawWidth * 100).toInt()}%")
         else if (jawWidth < -0.01f) badges.add("Jaw Slimmed ${(jawWidth * 100).toInt()}%")
+        if (abs(perspectiveWarp) > 0.01f) {
+            val p = (perspectiveWarp * 100).toInt()
+            badges.add("Jaw Perspective ${if (p > 0) "+$p%" else "$p%"}")
+        }
+        if (abs(brightness) > 0.01f) {
+            val b = (brightness * 100).toInt()
+            badges.add("Brightness ${if (b > 0) "+$b%" else "$b%"}")
+        }
+        if (abs(contrast) > 0.01f) {
+            val c = (contrast * 100).toInt()
+            badges.add("Contrast ${if (c > 0) "+$c%" else "$c%"}")
+        }
         if (skinWarmth > 0.01f) badges.add("Warm Glow +${(skinWarmth * 100).toInt()}%")
         if (eyeClarity > 0.01f) badges.add("Eye Clarity +${(eyeClarity * 100).toInt()}%")
         if (jawContour > 0.01f) badges.add("Contour +${(jawContour * 100).toInt()}%")
